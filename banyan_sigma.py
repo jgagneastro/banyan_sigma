@@ -1,7 +1,3 @@
-#[FIX ALL METIONS OF AN IDL STRUCTURE OR JUST IDL]
-#[FIX ROUTINE NAMES]
-#[FIX KEYWORD NAMES]
-#[ADD EXPLANATION ON USABLE COLUMN NAMES]
 """
  NAME:
        BANYAN_SIGMA
@@ -21,27 +17,28 @@
        
  REQUIREMENTS:
        (1) A fits file containing the parameters of the multivariate Gaussian models of each Bayesian hypothesis must be included
-           at /data/banyan_sigma_parameters.fits in the directory where BANYAN_SIGMA.pro is compiled. 
-           The fits file can be written with MWRFITS and must contain an IDL array of structures of N elements, where N is the total
+           at /data/banyan_sigma_parameters.fits in the directory where BANYAN_SIGMA() is compiled. 
+           The fits file can be written with the IDL MWRFITS.PRO function from an IDL array of structures of N elements, where N is the total
            number of multivariate Gaussians used in the models of all Bayesian hypotheses. Each element of this structure contains
            the following information:
            NAME - The name of the model (scalar string).
            CENTER_VEC - Central XYZUVW position of the model (6D vector, in units of pc and km/s).
-           COVARIANCE_MATRIX - Covariance matrix in XYZUVW associated with the model (6x6D matrix, in mixed units of pc and km/s).
-           PRECISION_MATRIX - (Optional) Matrix inverse of COVARIANCE_MATRIX, to avoid re-calculating it many times (6x6D matrix).
-           LN_NOBJ - (Optional) Natural logarithm of the number of objects used to build the synthetic model (scalar). This is not used in BANYAN_SIGMA.
+           COVARIANCE_MATRIX - Covariance matrix in XYZUVW associated with the model (6x6 matrix, in mixed units of pc and km/s).
+           PRECISION_MATRIX - (Optional) Matrix inverse of COVARIANCE_MATRIX, to avoid re-calculating it many times (6x6 matrix).
+           LN_NOBJ - (Optional) Natural logarithm of the number of objects used to build the synthetic model (scalar). This is not used in banyan_sigma().
            COVARIANCE_DETERM - (Optional) Determinant of the covariance matrix, to avoid re-calculating it many times (scalar).
            PRECISION_DETERM - (Optional) Determinant of the precision matrix, to avoid re-calculating it many times (scalar).
-           LN_ALPHA_K - (Optional) Natural logarithm of the alpha_k inflation factors that ensured a fixed rate of true positives at a given Bayesian
-                        probability treshold. See Gagné et al. 2017 (ApJ, XX, XX) for more detail (scalar or 4-elements vector).
-                        This is not used in BANYAN_SIGMA.
-           LN_PRIOR - Natural logarithm of the Bayesian prior (scalar of 4-elements vector). When this is a 4-elements vector, the cases with
-                      only proper motion, proper motion + radial velocity, proper motion + distance or proper motion + radial velocity + distance
+           LN_ALPHA_K - (Optional) Natural logarithm of the alpha_k inflation factors that ensured a fixed rate of true positives
+                        at a given Bayesian probability treshold. See Gagné et al. 2017 (ApJ, XX, XX) for more detail (scalar or 4-elements vector). This is not used in BANYAN_SIGMA.
+           LN_PRIOR - Natural logarithm of the Bayesian prior (scalar of 4-elements vector). When this is a 4-elements vector,
+                      the cases with only proper motion, proper motion + radial velocity, proper motion + distance or proper motion + radial velocity + distance
                       will be used with the corresponding element of the LN_PRIOR vector.
-           LN_PRIOR_OBSERVABLES - Scalar string or 4-elements vector describing the observing modes used for each element of LN_PRIOR.
-                                  This is not used in BANYAN_SIGMA.
+           LN_PRIOR_OBSERVABLES - Scalar string or 4-elements vector describing the observing modes used for each element of ln_prior.
+                                  This is not used in banyan_sigma().
            COEFFICIENT - Coefficient (or weight) for multivariate Gaussian mixture models. This will only be used if more than one element of the
                          parameters array have the same model name (see below).  
+           
+           In Python, this fits file is read with the Astropy.Tables routine.
            
            When more than one elements have the same model name, BANYAN_SIGMA will use the COEFFICIENTs to merge its Bayesian probability,
            therefore representing the hypothesis with a multivariate Gaussian model mixture.
@@ -66,84 +63,94 @@
            
  CALLING SEQUENCE:
  
-       OUTPUT_STRUCTURE = BANYAN_SIGMA(input_structure, [ HYPOTHESES=HYPOTHESES, LN_PRIORS=LN_PRIORS, NTARGETS_MAX=ntargets_max, 
-           RA=RA, DEC=DEC, PMRA=PMRA, PMDEC=PMDEC, EPMRA=EPMRA, EPMDEC=EPMDEC, DIST=DIST, EDIST=EDIST, RV=RV, ERV=ERV,
-           PSIRA=PSIRA, PSIDEC=PSIDEC, EPSIRA=EPSIRA, EPSIDEC=EPSIDEC, PLX=plx, EPLX=eplx,
-           CONSTRAINT_DIST_PER_HYP=CONSTRAINT_DIST_PER_HYP, CONSTRAINT_EDIST_PER_HYP=CONSTRAINT_EDIST_PER_HYP,
-          /UNITPRIORS, /LNP_ONLY, /NO_XYZ ])
+       OUTPUT_STRUCTURE = BANYAN_SIGMA(stars_data=None, column_names=None, hypotheses=None, ln_priors=None, ntargets_max=None, 
+           ra=None, dec=None, pmra=None, pmdec=None, epmra=None, epmdec=None, dist=None, edist=None, rv=None, erv=None,
+           psira=None, psidec=None, epsira=None, epsidec=None, plx=None, eplx=None,
+           constraint_dist_per_hyp=None, constraint_edist_per_hyp=None,
+          unit_priors=True/False, lnp_only=True/False, no_xyz=True/False, use_rv=True/False, use_dist=True/False, 
+          use_plx=True/False, use_psi=True/False)
 
  OPTIONAL INPUTS:
-       input_structure - An IDL structure (or array of structures when more than one objects are analyzed) that contain at least the following tags:
-                         RA, DEC, PMRA, PMDEC, EPMRA, and EPMDEC. It can also optionally contain the tags RV, ERV, DIST, EDIST, PLX, EPLX
-                         PSIRA, PSIDEC, EPSIRA, EPSIDEC. See the corresponding keyword descriptions for more information.
-                         If this input is not used, the keywords RA, DEC, PMRA, PMDEC, EPMRA, and EPMDEC must all be specified.
-       RA - Right ascension (decimal degrees). A N-elements array can be specified to calculate the Bayesian probability of several
+       stars_data - An structured array that contains at least the following informations:
+                    ra, dec, pmra, pmdec, epmra, and epmdec. It can also optionally contain the informations on
+                    rv, erv, dist, edist, plx, eplx, psira, psidec, epsira, epsidec. See the corresponding keyword
+                    descriptions for more information.
+                    If this input is not used, the keywords ra, dec, pmra, pmdec, epmra, and epmdec must all be specified.
+       column_names - A Python dictionary that contains the names of the "stars_data" columns columns which differ from the
+                     default values listed above. For example, column_names = {'RA':'ICRS_RA'} can be used to specify that
+                     the RA values are listed in the column of stars_data named ICRS_RA.
+       ra - Right ascension (decimal degrees). A N-elements array can be specified to calculate the Bayesian probability of several
             stars at once, but then all mandatory inputs must also be N-elements arrays.
-       DEC - Declination (decimal degrees).
-       PMRA - Proper motion in the right ascension direction (mas/yr, must include the cos(dec) factor).
-       PMDEC - Proper motion in the declination direction (mas/yr).
-       EPMRA - Measurement error on the proper motion in the right ascension direction (mas/yr, must not include the cos(dec) factor).
-       EPMDEC -  Measurement error on the proper motion in the declination direction (mas/yr).
-       RV - Radial velocity measurement to be included in the Bayesian probability (km/s).
-            If this keyword is set, ERV must also be set.
+       dec - Declination (decimal degrees).
+       pmra - Proper motion in the right ascension direction (mas/yr, must include the cos(dec) factor).
+       pmdec - Proper motion in the declination direction (mas/yr).
+       epmra - Measurement error on the proper motion in the right ascension direction (mas/yr, must not include the cos(dec) factor).
+       epmdec -  Measurement error on the proper motion in the declination direction (mas/yr).
+       rv - Radial velocity measurement to be included in the Bayesian probability (km/s).
+            If this keyword is set, erv must also be set.
             A N-elements array must be used if N stars are analyzed at once.
-       ERV - Measurement error on the radial velocity to be included in the Bayesian probability (km/s).
+       erv - Measurement error on the radial velocity to be included in the Bayesian probability (km/s).
              A N-elements array must be used if N stars are analyzed at once.
-       DIST - Distance measurement to be included in the Bayesian probability (pc).
-              By default, the BANYAN_SIGMA Bayesian priors are meant for this keyword to be used with trigonometric distances only.
+       dist - Distance measurement to be included in the Bayesian probability (pc).
+              By default, the banyan_sigma() Bayesian priors are meant for this keyword to be used with trigonometric distances only.
               Otherwise, the rate of true positives may be far from the nominal values described in Gagné et al. (ApJS, 2017, XX, XX).
-              If this keyword is set, EDIST must also be set.
+              If this keyword is set, edist must also be set.
               A N-elements array must be used if N stars are analyzed at once.
-       EDIST - Measurement error on the distance to be included in the Bayesian probability (pc).
+       edist - Measurement error on the distance to be included in the Bayesian probability (pc).
                A N-elements array must be used if N stars are analyzed at once.
-       PLX - Parallax measurement to be included in the Bayesian probability (mas). The distance will be approximated with DIST = 1000/PLX.
-             If this keyword is set, EPLX must also be set.
+       plx - Parallax measurement to be included in the Bayesian probability (mas). The distance will be approximated with dist = 1000/plx.
+             If this keyword is set, eplx must also be set.
              A N-elements array must be used if N stars are analyzed at once.
-       EPLX - Measurement error on the parallax to be included in the Bayesian probability (mas). The distance error will be approximated with EDIST = 1000/PLX^2*EPLX.
+       eplx - Measurement error on the parallax to be included in the Bayesian probability (mas).
+              The distance error will be approximated with edist = 1000/plx**2*eplx.
               A N-elements array must be used if N stars are analyzed at once.
-       PSIRA - Parallax motion factor PSIRA described in Gagné et al. (ApJS, 2017, XX, XX), in units of yr^(-1).
-                If this keyword is set, the corresponding PSIDEC, EPSIRA and EPSIDEC keywords must also be set.
+       psira - Parallax motion factor PSIRA described in Gagné et al. (ApJS, 2017, XX, XX), in units of 1/yr.
+                If this keyword is set, the corresponding psidec, epsira and epsidec keywords must also be set.
                 This measurement is only useful when proper motions are estimated from two single-epoch astrometric
                 measurements. It captures the dependence of parallax motion as a function of distance, and allows
-                BANYAN_SIGMA to shift the UVW center of the moving group models, which is equivalent to
-                correctly treating the input "proper motion" PMRA, PMDEC, EPMRA, EPMDEC as a true apparent motion.
+                banyan_sigma() to shift the UVW center of the moving group models, which is equivalent to
+                correctly treating the input "proper motion" pmra, pmdec, epmra, epmdec as a true apparent motion.
                 This keyword should *not* be used if proper motions were derived from more than two epochs, or if
                 they were obtained from a full parallax solution.
                 A N-elements array must be used if N stars are analyzed at once.
-       PSIDEC - Parallax motion factor PSIDEC described in Gagné et al. (ApJS, 2017, XX, XX), in units of yr^(-1).
+       psidec - Parallax motion factor psidec described in Gagné et al. (ApJS, 2017, XX, XX), in units of 1/yr.
                  A N-elements array must be used if N stars are analyzed at once.
-       EPSIRA - Measurement error on the parallax motion factor PSIRA described in Gagné et al. (ApJS, 2017, XX, XX),
-                 in units of yr^(-1). A N-elements array must be used if N stars are analyzed at once.
-       EPSIDEC - Measurement error on the parallax motion factor PSIDEC described in Gagné et al. (ApJS, 2017, XX, XX),
-                  in units of yr^(-1). A N-elements array must be used if N stars are analyzed at once.
-       NTARGETS_MAX - (default 10^6). Maximum number of objects to run at once in BANYAN_SIGMA to avoid saturating the RAM.
-                      If more targets are supplied, BANYAN_SIGMA is run over a loop of several batches of  NTARGETS_MAX objects. 
-       HYPOTHESES - The list of Bayesian hypotheses to be considered. They must all be present in the parameters fits file
+       epsira - Measurement error on the parallax motion factor psira described in Gagné et al. (ApJS, 2017, XX, XX),
+                 in units of 1/yr. A N-elements array must be used if N stars are analyzed at once.
+       epsidec - Measurement error on the parallax motion factor psidec described in Gagné et al. (ApJS, 2017, XX, XX),
+                  in units of 1/yr. A N-elements array must be used if N stars are analyzed at once.
+       ntargets_max - (default 10^6). Maximum number of objects to run at once in BANYAN_SIGMA to avoid saturating the RAM.
+                      If more targets are supplied, banyan_sigma() is run over a loop of several batches of ntargets_max objects. 
+       hypotheses - The list of Bayesian hypotheses to be considered. They must all be present in the parameters fits file
                     (See REQUIREMENTS #1 above).
-       LN_PRIORS - An IDL structure that contains the natural logarithm of Bayesian priors that should be *multiplied with the
-                   default priors* (use /UNITPRIORS if you want only LN_PRIORS to be considered). The structure must contain the name
-                   of each hypothesis as tags, and the associated scalar value of the natural logarithm of the Bayesian prior for each tag. 
-       CONSTRAINT_DIST_PER_HYP - An IDL structure (or array of IDL structures when several objects are analyzed) that contains a distance constraint (in pc).
-                   Each of the Bayesian hypotheses must be included as structure tags and the distance must be specified as its
-                   associated scalar value. CONSTRAINT_EDIST_PER_HYP must also be specified if CONSTRAINT_DIST_PER_HYP is specified.
+       ln_priors - An dictionary that contains the natural logarithm of Bayesian priors that should be *multiplied with the
+                   default priors* (use unit_priors=True if you want only ln_priors to be considered). The structure must contain the name
+                   of each hypothesis as keys, and the associated scalar value of the natural logarithm of the Bayesian prior for each key. 
+       constraint_dist_per_hyp - A structured array that contains a distance constraint (in pc).
+                   Each of the Bayesian hypotheses must be included as keys and the distance must be specified as its
+                   associated scalar value. constraint_edist_per_hyp must also be specified if constraint_dist_per_hyp is specified.
                    This keyword is useful for including spectro-photometric distance constraints that depend on the age of the young association or field.
-       CONSTRAINT_EDIST_PER_HYP - An IDL structure (or array of IDL structures when several objects are analyzed) that contains a measurement
-                   error on the distance constraint (in pc). Each of the Bayesian hypotheses must be included as structure tags and the
+       constraint_edist_per_hyp - A structured array that contains a measurement
+                   error on the distance constraint (in pc). Each of the Bayesian hypotheses must be included as keys and the
                    distance error must be specified as its associated scalar value.  
 
  OPTIONAL INPUT KEYWORD:
-       /UNITPRIORS - If this keyword is set, all default priors are set to 1 (but they are still overrided by manual priors input with the keyword LN_PRIORS).
-       /LNP_ONLY - If this keyword is set, only Bayesian probabilities will be calculated and returned.
-       /NO_XYZ - If this keyword is set, the width of the spatial components of the multivariate Gaussian will be widened by a large
+       unit_priors - If this keyword is set, all default priors are set to 1 (but they are still overrided by manual priors input with the keyword ln_priors).
+       lnp_only - If this keyword is set, only Bayesian probabilities will be calculated and returned.
+       no_xyz - If this keyword is set, the width of the spatial components of the multivariate Gaussian will be widened by a large
                  factor, so that the XYZ components are effectively ignored. This keyword must be used with extreme caution as it will
                  generate a significant number of false-positives and confusion between the young associations.
+       use_rv - Use any radial velocity values found in the stars_data input structure.
+       use_dist - Use any distance values found in the stars_data input structure.
+       use_plx - Use any parallax values found in the stars_data input structure.
+       use_psi - Use any psira, psidec values found in the stars_data input structure.
 
  OUTPUT:
-      This routine outputs a single IDL structure (or array of structures when many objects are analyzed at once), with the following tags:
+      This routine outputs a structured array, with the following keys:
       NAME - The name of the object (as taken from the input structure).
-      ALL - A structure that contains the Bayesian probability (0 to 1) for each of the associations (as individual tags).
+      ALL - A structure that contains the Bayesian probability (0 to 1) for each of the associations (as individual keys).
       METRICS - A structure that contains the performance metrics associated with the global Bayesian probability of this target.
-                This sub-structure contains the following tags:
+                This sub-structure contains the following keys:
         TPR - Rate of true positives expected in a sample of objects that have a Bayesian membership probability at least as large as that of the target.
         FPR - Rate of false positives (from the field) expected in a sample of objects that have a Bayesian membership probability at least as large as that of the target.
         PPV - Positive Predictive Value (sample contamination) expected in a sample of objects that have a Bayesian membership probability at least as large as that of the target.
@@ -151,7 +158,7 @@
       [ASSOCIATION_2] - (...).
       (...).
       [ASSOCIATION_N] - (...).
-                        These sub-structures contain the following tags:
+                        These sub-structures contain the following keys:
         HYPOTHESIS - Name of the association
         PROB - Bayesian probability (0 to 1)
         D_OPT - Optimal distance (pc) that maximizes the Bayesian likelihood for this hypothesis.
@@ -178,10 +185,6 @@
                       between parentheses.
       BEST_HYP - Most probable Bayesian hypothesis (including the field)
       BEST_YA - Most probable single young association.
-      
- PROCEDURES USED:
-       [FIX THESE]
-       BANYAN_SIGMA_SOLVE_MULTIVAR, NAN_STR, ALOG_SUM_2D, MRDFITS, REMOVE, UNIQ_UNSORTED
 
  MODIFICATION HISTORY:
        WRITTEN, Olivier Loubier, July, 12 2017
@@ -218,64 +221,183 @@ TGAL = (np.array([[-0.0548755604, -0.8734370902, -0.4838350155],
 sin_dec_pol = np.sin(np.radians(dec_pol))
 cos_dec_pol = np.cos(np.radians(dec_pol))
 
-#Maybe make this routine callable directly from the terminal
-def banyan_sigma(stars_data,column_data=None,RV=False,DIST=False,PLX=False,PSI=False):
-	#column_data must be a Python dictionary listing the column names of stars_data associated with each observable. For example, if the "RA" dictionary entry contains the string "ICRS_RA", banyan_sigma will read the "ICRS_RA" column of stars_data as the right ascension. The mandatory dictionary entries are "RA", "DEC", "PMRA", "PMDEC", "EPMRA", "EPMDEC" and the facultative entries are "RV", "ERV", "DIST", "EDIST", "PLX", "EPLX".
+#Main BANYAN_SIGMA routine
+def banyan_sigma(stars_data=None,column_names=None,hypotheses=None,ln_priors=None,ntargets_max=1e6,ra=None,dec=None,pmra=None,pmdec=None,epmra=None,epmdec=None,dist=None,edist=None,rv=None,erv=None,psira=None,psidec=None,epsira=None,epsidec=None,plx=None,eplx=None,constraint_dist_per_hyp=None,constraint_edist_per_hyp=None,unit_priors=False,lnp_only=False,no_xyz=False,use_rv=False,use_dist=False,use_plx=False,use_psi=False):
 	
-	#Default column data
-	default_column_data = {'RA':'RA','DEC':'DEC','PMRA':'PMRA','PMDEC':'PMDEC','EPMRA':'EPMRA','EPMDEC':'EPMDEC'}
-	if RV is True:
-		default_column_data['RV'] = 'RV'
-		default_column_data['ERV'] = 'ERV'
-	if PLX is True:
-		default_column_data['PLX'] = 'PLX'
-		default_column_data['EPLX'] = 'EPLX'
-	if DIST is True:
-		default_column_data['DIST'] = 'DIST'
-		default_column_data['EDIST'] = 'EDIST'
-	if PSI is True:
-		default_column_data['PSIRA'] = 'PSIRA'
-		default_column_data['PSIDEC'] = 'PSIDEC'
-		default_column_data['EPSIRA'] = 'EPSIRA'
-		default_column_data['EPSIDEC'] = 'EPSIDEC'
+	#Check input consistency
+	if stars_data is None and (ra is None or dec is None or pmra is None or pmdec is None or epmra is None or epmdec is None):
+		raise ValueError('Either an input structure (stars_data) or all of the ra,dec,pmra,pmdec,epmra and epmdec keywords must be specified !')
+	
+	if constraint_dist_per_hyp is not None and constraint_edist_per_hyp is None:
+		raise ValueError('f constraint_dist_per_hyp is specified, constraint_edist_per_hyp must also be specified !')
+	
+	#Default column names
+	default_column_names = {'RA':'RA','DEC':'DEC','PMRA':'PMRA','PMDEC':'PMDEC','EPMRA':'EPMRA','EPMDEC':'EPMDEC'}
+	if use_rv is True:
+		default_column_names['RV'] = 'RV'
+		default_column_names['ERV'] = 'ERV'
+	if use_plx is True:
+		default_column_names['PLX'] = 'PLX'
+		default_column_names['EPLX'] = 'EPLX'
+	if use_dist is True:
+		default_column_names['DIST'] = 'DIST'
+		default_column_names['EDIST'] = 'EDIST'
+	if use_psi is True:
+		default_column_names['PSIRA'] = 'PSIRA'
+		default_column_names['PSIDEC'] = 'PSIDEC'
+		default_column_names['EPSIRA'] = 'EPSIRA'
+		default_column_names['EPSIDEC'] = 'EPSIDEC'
 	
 	#Merge user-issued column data with the default values (the user-issued values take predominance)
-	if column_data is not None:
-		column_data = {**default_column_data, **column_data}
+	if column_names is not None:
+		column_names = {**default_column_names, **column_names}
 	
-	#Check if a column named RV exists in stars_data but not column_data. If this is the case, issue a warning so that the user understands RVs are not being considered. Do the same with DIST and PLX (unless either DIST or PLX are in the column_data).
-	if 'PLX' in stars_data.keys() and 'PLX' not in column_data.keys():
-		warnings.warn('Parallaxes (PLX) were not read from the input data, because the PLX keyword was not included in the "COLUMN_DATA" keyword of BANYAN_SIGMA. You can also call BANYAN_SIGMA with the /PLX keyword to read them.')
-	if 'DIST' in stars_data.keys() and 'DIST' not in column_data.keys():
-		warnings.warn('Distances (DIST) were not read from the input data, because the DIST keyword was not included in the "COLUMN_DATA" keyword of BANYAN_SIGMA. You can also call BANYAN_SIGMA with the /DIST keyword to read them.')
-	if 'RV' in stars_data.keys() and 'RV' not in column_data.keys():
-		warnings.warn('Radial velocities (RV) were not read from the input data, because the RV keyword was not included in the "COLUMN_DATA" keyword of BANYAN_SIGMA. You can also call BANYAN_SIGMA with the /RV keyword to read them.')
-	if ('PSIRA' in stars_data.keys() and 'PSIRA' not in column_data.keys()) or ('PSIDEC' in stars_data.keys() and 'PSIDEC' not in column_data.keys()):
-		warnings.warn('The PSI parameters (PSIRA,PSIDEC) were not read from the input data, because the PSIRA and PSIDEC keywords were not included in the "COLUMN_DATA" keyword of BANYAN_SIGMA. You can also call BANYAN_SIGMA with the /PSI keyword to read them.')
+	#Check if a column named PLX, DIST, RV, PSIRA, etc. exist in stars_data but not in column_names. If this is the case, issue a warning so that the user understands that some data are not being considered.
+	if stars_data is not None:
+		if 'PLX' in stars_data.keys() and 'PLX' not in column_names.keys():
+			warnings.warn('Parallaxes (PLX) were not read from the input data, because the PLX key was not included in the column_names keyword of banyan_sigma(). You can also call banyan_sigma() with the use_plx=True keyword to read them.')
+		if 'DIST' in stars_data.keys() and 'DIST' not in column_names.keys():
+			warnings.warn('Distances (DIST) were not read from the input data, because the DIST key was not included in the column_names keyword of banyan_sigma(). You can also call banyan_sigma() with the use_dist=True keyword to read them.')
+		if 'RV' in stars_data.keys() and 'RV' not in column_names.keys():
+			warnings.warn('Radial velocities (RV) were not read from the input data, because the RV key was not included in the column_names keyword of banyan_sigma(). You can also call banyan_sigma() with use_rv=True to read them.')
+		if ('PSIRA' in stars_data.keys() and 'PSIRA' not in column_names.keys()) or ('PSIDEC' in stars_data.keys() and 'PSIDEC' not in column_names.keys()):
+			warnings.warn('The PSI parameters (PSIRA,PSIDEC) were not read from the input data, because the PSIRA and PSIDEC keys were not included in the column_data keyword of banyan_sigma(). You can also call banyan_sigma() with use_psi=True keyword to read them.')
+	
+	#Create a table of data for BANYAN SIGMA to use
+	if ra is not None:
+		nobj = np.size(ra)
+		zeros = np.zeros(nobj)
+		rows = np.array([ra,dec,pmra,pmdec,epmra,epmdec,zeros,zeros,zeros,zeros])
+	if ra is None:
+		nobj = np.size(stars_data)
+		zeros = np.zeros(nobj)
+		rows = np.array([stars_data[column_names['RA']],stars_data[column_names['DEC']],stars_data[column_names['PMRA']],stars_data[column_names['PMDEC']],stars_data[column_names['EPMRA']],stars_data[column_names['EPMDEC']],zeros,zeros,zeros,zeros])
+	data_table = Table(rows=rows.transpose(),names=('RA','DEC','PMRA','PMDEC','EPMRA','EPMDEC','PSIRA','PSIDEC','EPSIRA','EPSIDEC'))
+	
+	#Fill up the data table with stars_data if it is specified
+	for keys in column_names.keys():
+		if (keys == 'PLX') or (keys == 'EPLX'):
+			continue
+		data_table[keys] = stars_data[column_names[keys]]
+	if 'PLX' in column_names.keys():
+		data_table['DIST'] = 1e3/stars_data[column_names['PLX']]
+	if 'PLX' in column_names.keys() and 'EPLX' in column_names.keys():
+		data_table['EDIST'] = 1e3/stars_data[column_names['PLX']]**2*stars_data[column_names['EPLX']]
+	
+	#Transform parallaxes to distances directly in data_table
+	if 'PLX' in data_table.keys() and 'EPLX' in data_table.keys():
+		data_table['EDIST'] = 1e3/data_table['PLX']**2*data_table['EPLX']
+		data_table.remove_column('EPLX')
+	if 'PLX' in data_table.keys():
+		data_table['DIST'] = 1e3/data_table['PLX']
+		data_table.remove_column('PLX')
+	
+	#If measurements are specified as keywords, put them in the data table
+	if ra is not None:
+		data_table['RA'] = ra
+	if dec is not None:
+		data_table['DEC'] = dec
+	if pmra is not None:
+		data_table['PMRA'] = pmra
+	if pmdec is not None:
+		data_table['PMDEC'] = pmdec
+	if epmra is not None:
+		data_table['EPMRA'] = epmra
+	if epmdec is not None:
+		data_table['EPMDEC'] = epmdec
+	if plx is not None:
+		data_table['DIST'] = 1e3/plx
+	if plx is not None and eplx is not None:
+		data_table['EDIST'] = 1e3/plx**2*eplx
+	if dist is not None:
+		data_table['DIST'] = dist
+	if edist is not None:
+		data_table['EDIST'] = edist
+	if rv is not None:
+		data_table['RV'] = rv
+	if erv is not None:
+		data_table['ERV'] = erv
+	if psira is not None:
+		data_table['PSIRA'] = psira
+	if psidec is not None:
+		data_table['PSIDEC'] = psidec
+	if epsira is not None:
+		data_table['EPSIRA'] = epsira
+	if epsidec is not None:
+		data_table['EPSIDEC'] = epsidec
+	
+	#Check for unphysical data
+	if np.max((data_table['RA'] < 0.) | (data_table['RA'] >= 360.)) != 0:
+		raise ValueError('Some RA values are unphysical')
+	if np.max((data_table['DEC'] < -90.) | (data_table['DEC'] > 90.)) != 0:
+		raise ValueError('Some DEC values are unphysical')
+	if np.max((data_table['EPMRA'] < 0.) | (data_table['EPMDEC'] < 0.)) != 0:
+		raise ValueError('Some EPMRA or EPMDEC values are unphysical')
+	if np.max((np.isnan(data_table['RA']) | (np.isnan(data_table['DEC'])) | (np.isnan(data_table['PMRA'])) | (np.isnan(data_table['PMDEC'])) | (np.isnan(data_table['EPMRA'])) | (np.isnan(data_table['EPMDEC'])))) != 0:
+		raise ValueError('The observables ra,dec,pmra,pmdec,epmra and epmdec must be specified (and finite) for each object !')
+	if 'RV' in data_table.keys() and 'ERV' not in data_table.keys():
+		raise ValueError('RV is defined in the data table but not ERV')
+	if 'DIST' in data_table.keys() and 'EDIST' not in data_table.keys():
+		raise ValueError('DIST is defined in the data table but not EDIST')
+	if 'ERV' in data_table.keys():
+		if np.max(data_table['ERV'] <= 0.):
+			raise ValueError('Some ERV values are unphysical')
+	if 'RV' in data_table.keys() and 'ERV' in data_table.keys():
+		if np.max(np.isfinite(data_table['RV']) & np.isnan(data_table['ERV'])):
+			raise ValueError('Some RV values are specified without ERV')
+	if 'DIST' in data_table.keys() and 'EDIST' in data_table.keys():
+		if np.max((data_table['DIST'] < 0.) | (data_table['EDIST'] <= 0.)):
+			raise ValueError('Some DIST or EDIST values are unphysical')
+		if np.max(np.isfinite(data_table['DIST']) & np.isnan(data_table['EDIST'])):
+			raise ValueError('Some DIST values are specified without EDIST')
+	if np.max(((data_table['PSIRA'] != 0.) | (data_table['PSIDEC'] != 0.)) & ((data_table['EPSIRA'] == 0.) | (data_table['EPSIDEC'] == 0.)) | (data_table['EPSIRA'] < 0.) | (data_table['EPSIDEC'] < 0.)):
+			raise ValueError('Some EPSIRA or EPSIDEC values are unphysical')
+	
+	#Data file containing the parameters of Bayesian hypotheses
+	parameters_file = os.path.dirname(__file__)+os.sep+'data'+os.sep+'banyan_sigma_parameters.fits'
+	
+	#Check if the file exists
+	if not os.path.isfile(parameters_file):
+		raise ValueError('The multivariate Gaussian parameters file could not be found ! Please make sure that you did not move "'+path_sep()+'data'+path_sep()+'banyan_sigma_parameters.fits" from the same path as the Python file banyan_sigma.py !')
+	
+	#Read the parameters of Bayesian hypotheses
+	parameters_str = Table.read(parameters_file,format='fits')
+	#Remove white spaces in names
+	parameters_str['NAME'] = np.chararray.strip(np.array(parameters_str['NAME']))
+	npar = np.size(parameters_str)
+	
+	#Fix names that start with a number
+	for i in range(parameters_str['NAME']):
+		if parameters_str['NAME'][i][0].isdigit():
+			parameters_str['NAME'][i] = '_'+parameters_str['NAME'][i]
+			
+	[word[0].isdigit() for word in parameters_str['NAME']]
+	
+	pdb.set_trace()
 	
 	#Issue error if measurement errors are not listed
-	if 'PLX' in column_data.keys() and 'EPLX' not in column_data.keys():
+	if 'PLX' in column_names.keys() and 'EPLX' not in column_names.keys():
 		raise ValueError('If parallaxes (PLX) are specified, error bars (EPLX) must also be specified')
 		
-	if 'DIST' in column_data.keys() and 'EDIST' not in column_data.keys():
+	if 'DIST' in column_names.keys() and 'EDIST' not in column_names.keys():
 		raise ValueError('If distances (DIST) are specified, error bars (EDIST) must also be specified')
 	
-	if 'RV' in column_data.keys() and 'ERV' not in column_data.keys():
+	if 'RV' in column_names.keys() and 'ERV' not in column_names.keys():
 		raise ValueError('If radial velocities (RV) are specified, error bars (ERV) must also be specified')
 	
-	#Issue an error if both DIST and PLX are given in column_data
-	if 'PLX' in column_data.keys() and 'DIST' in column_data.keys():
+	#Issue an error if both DIST and PLX are given in column_names
+	if 'PLX' in column_names.keys() and 'DIST' in column_names.keys():
 		raise ValueError('Distances (DIST) and parallaxes (PLX) cannot both be specified')
 	
 	#Issue an error if only parts of the PSI measurements or errors are given
-	if 'PSIRA' in column_data.keys() ^ 'PSIDEC' in column_data.keys():
+	if 'PSIRA' in column_names.keys() ^ 'PSIDEC' in column_names.keys():
 		raise ValueError('If the PSIRA keyword is specified, PSIDEC must also be specified')
-	if ('PSIRA' in column_data.keys() and 'EPSIRA' not in column_data.keys()) or ('PSIDEC' in column_data.keys() and 'EPSIDEC' not in column_data.keys()):
+	if ('PSIRA' in column_names.keys() and 'EPSIRA' not in column_names.keys()) or ('PSIDEC' in column_names.keys() and 'EPSIDEC' not in column_names.keys()):
 		raise ValueError('If the PSIRA and PSIDEC keywords are specified, EPSIRA and EPSIDEC must also be specified')
 	
-	#Issue an error if some of the column_data entries are not present in stars_data
-	for key in column_data.keys():
-		if column_data[key] not in stars_data.keys():
+	#Issue an error if some of the column_names entries are not present in stars_data
+	for key in column_names.keys():
+		if column_names[key] not in stars_data.keys():
 			raise ValueError('The "'+key+'" keyword is not present in the input data structure')
 	
 	#Read the multivariate Gaussian parameters 
@@ -287,35 +409,35 @@ def banyan_sigma(stars_data,column_data=None,RV=False,DIST=False,PLX=False,PSI=F
 	#Read distance measurements from either the PLX or DIST keywords
 	dist_measured = None
 	dist_error = None
-	if 'PLX' in column_data.keys():
-		plx_measured = stars_data[column_data['PLX']]
-		plx_error = stars_data[column_data['EPLX']]
+	if 'PLX' in column_names.keys():
+		plx_measured = stars_data[column_names['PLX']]
+		plx_error = stars_data[column_names['EPLX']]
 		dist_measured = 1e3/plx_measured
 		dist_error = 1e3/plx_measured**2*plx_error
-	if 'DIST' in column_data.keys():
-		dist_measured = stars_data[column_data['DIST']]
-		dist_error = stars_data[column_data['EDIST']]
+	if 'DIST' in column_names.keys():
+		dist_measured = stars_data[column_names['DIST']]
+		dist_error = stars_data[column_names['EDIST']]
 	
 	#Read RV measurements
 	rv_measured = None
 	rv_error = None
-	if 'RV' in column_data.keys():
-		rv_measured = stars_data[column_data['RV']]
-		rv_error = stars_data[column_data['ERV']]
+	if 'RV' in column_names.keys():
+		rv_measured = stars_data[column_names['RV']]
+		rv_error = stars_data[column_names['ERV']]
 	
 	#Read PSI measurements
 	psira = None
 	psidec = None
 	psira_error = None
 	psidec_error = None
-	if 'PSIRA' in column_data.keys():
-		psira = stars_data[column_data['PSIRA']]
-		psidec = stars_data[column_data['PSIDEC']]
-		psira_error = stars_data[column_data['EPSIRA']]
-		psidec_error = stars_data[column_data['EPSIDEC']]
+	if 'PSIRA' in column_names.keys():
+		psira = stars_data[column_names['PSIRA']]
+		psidec = stars_data[column_names['PSIDEC']]
+		psira_error = stars_data[column_names['EPSIRA']]
+		psidec_error = stars_data[column_names['EPSIDEC']]
 	
 	i = 0
-	outi = banyan_sigma_solve_multivar(stars_data[column_data['RA']],stars_data[column_data['DEC']],stars_data[column_data['PMRA']],stars_data[column_data['PMDEC']],stars_data[column_data['EPMRA']],stars_data[column_data['EPMDEC']],rv_measured=rv_measured,rv_error=rv_error,dist_measured=dist_measured,dist_error=dist_error,psira=psira,psidec=psidec,psira_error=psira_error,psidec_error=psidec_error,precision_matrix=parameters_str[i]['PRECISION_MATRIX'],center_vec=parameters_str[i]['CENTER_VEC'],precision_matrix_determinant=parameters_str[i]['PRECISION_DETERM'])
+	outi = banyan_sigma_solve_multivar(stars_data[column_names['RA']],stars_data[column_names['DEC']],stars_data[column_names['PMRA']],stars_data[column_names['PMDEC']],stars_data[column_names['EPMRA']],stars_data[column_names['EPMDEC']],rv_measured=rv_measured,rv_error=rv_error,dist_measured=dist_measured,dist_error=dist_error,psira=psira,psidec=psidec,psira_error=psira_error,psidec_error=psidec_error,precision_matrix=parameters_str[i]['PRECISION_MATRIX'],center_vec=parameters_str[i]['CENTER_VEC'],precision_matrix_determinant=parameters_str[i]['PRECISION_DETERM'])
 	pdb.set_trace()
 	
 	lnP = 0.
