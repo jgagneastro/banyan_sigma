@@ -3,7 +3,7 @@
        BANYAN_SIGMA
 
  PURPOSE:
-       Calculate the membership probability that a given astrophysical object belong to one of the currently
+       Calculate the membership probability that a given astrophysical object belongs to one of the currently
        known 27 young associations within 150 pc of the Sun, using Bayesian inference. This tool uses the sky
        position and proper motion measurements of an object, with optional radial velocity (RV) and distance (D)
        measurements, to derive a Bayesian membership probability. By default, the priors are adjusted such that
@@ -11,7 +11,7 @@
        what observables are input (only sky position and proper motion, with RV, with D, with both RV and D,
        respectively).
        
-       Please see Gagné et al. 2017 (ApJ, XX, XX; Arxiv YY, YY) for more detail.
+       Please see Gagné et al. 2017 (ApJ, XX, XX) for more detail.
        
        An online version of this tool is available for 1-object queries at http://www.astro.umontreal.ca/~gagne/banyansigma.php.
        
@@ -50,13 +50,12 @@
            PROBS - N-elements array containing a list of Bayesian probabilities (%).
            TPR - Nx4-elements array containing the rate of true positives that correspond to each of the Bayesian probability (lower) tresholds stored in PROBS.
            FPR - Nx4-elements array containing the rate  of false positives that correspond to each of the Bayesian probability (lower) tresholds stored in PROBS.
-           MCC - Nx4-elements array containing the Matthews Correlation Coefficients that correspond to each of the Bayesian probability (lower) tresholds stored in PROBS.
            PPV - Nx4-elements array containing the Positive Predictive Values that correspond to each of the Bayesian probability (lower) tresholds stored in PROBS.
-           
-           Each component of the 4-elements dimension of TPR, FPR, MCC and PPV corresponds to a different mode of input data,
+           NFP - Number of expected false positives (FPR times the ~7 million stars in the Besancon simulation of the Solar neighborhood)
+           Each component of the 4-elements dimension of TPR, FPR and PPV corresponds to a different mode of input data,
            see the description of "LN_PRIOR" above for more detail.
            
-           When this fits file is used, the Bayesian probabilities of each star will be associated with a TPR, FPR, MCC and PPV values in the METRICS sub-structure of
+           When this fits file is used, the Bayesian probabilities of each star will be associated with a TPR, FPR, NFP and PPV values in the METRICS sub-structure of
            the output structure.
            
            This file must be located at /data/banyan_sigma_metrics.fits in the directory where BANYAN_SIGMA.pro is compiled.
@@ -196,10 +195,21 @@
 import numpy as np #Numpy maths
 from scipy.special import erfc
 import os #Access to environment variables
+import pandas as pd #Pandas dataframes will be used to store BANYAN Sigma outputs
 from astropy.table import Table #Reading astro-formatted tables
 import warnings #Raise user-defined Python warnings
 import pdb #Debugging
 from scipy.stats import describe #Useful for debugging
+from scipy.misc import logsumexp #Useful to sum logarithms in a numerically stable way
+
+#A more user-friendly way to set break points
+stop = pdb.set_trace
+
+#A very small number used for numerical stability
+tiny_number = 1e-318
+
+#The total number of stars in the Besancon model within 300 pc to tranlate FPR to NFP
+total_besancon_objects = 7152397.0
 
 #Initiate some global constants
 kappa = 0.004743717361 #1 AU/yr to km/s divided by 1000.
@@ -222,7 +232,7 @@ sin_dec_pol = np.sin(np.radians(dec_pol))
 cos_dec_pol = np.cos(np.radians(dec_pol))
 
 #Main BANYAN_SIGMA routine
-def banyan_sigma(stars_data=None,column_names=None,hypotheses=None,ln_priors=None,ntargets_max=1e6,ra=None,dec=None,pmra=None,pmdec=None,epmra=None,epmdec=None,dist=None,edist=None,rv=None,erv=None,psira=None,psidec=None,epsira=None,epsidec=None,plx=None,eplx=None,constraint_dist_per_hyp=None,constraint_edist_per_hyp=None,unit_priors=False,lnp_only=False,no_xyz=False,use_rv=False,use_dist=False,use_plx=False,use_psi=False):
+def banyan_sigma(stars_data=None,column_names=None,hypotheses=None,ln_priors=None,ntargets_max=1e7,ra=None,dec=None,pmra=None,pmdec=None,epmra=None,epmdec=None,dist=None,edist=None,rv=None,erv=None,psira=None,psidec=None,epsira=None,epsidec=None,plx=None,eplx=None,constraint_dist_per_hyp=None,constraint_edist_per_hyp=None,unit_priors=False,lnp_only=False,no_xyz=False,use_rv=None,use_dist=None,use_plx=None,use_psi=None):
 	
 	#Check input consistency
 	if stars_data is None and (ra is None or dec is None or pmra is None or pmdec is None or epmra is None or epmdec is None):
@@ -254,14 +264,14 @@ def banyan_sigma(stars_data=None,column_names=None,hypotheses=None,ln_priors=Non
 	
 	#Check if a column named PLX, DIST, RV, PSIRA, etc. exist in stars_data but not in column_names. If this is the case, issue a warning so that the user understands that some data are not being considered.
 	if stars_data is not None:
-		if 'PLX' in stars_data.keys() and 'PLX' not in column_names.keys():
-			warnings.warn('Parallaxes (PLX) were not read from the input data, because the PLX key was not included in the column_names keyword of banyan_sigma(). You can also call banyan_sigma() with the use_plx=True keyword to read them.')
-		if 'DIST' in stars_data.keys() and 'DIST' not in column_names.keys():
-			warnings.warn('Distances (DIST) were not read from the input data, because the DIST key was not included in the column_names keyword of banyan_sigma(). You can also call banyan_sigma() with the use_dist=True keyword to read them.')
-		if 'RV' in stars_data.keys() and 'RV' not in column_names.keys():
-			warnings.warn('Radial velocities (RV) were not read from the input data, because the RV key was not included in the column_names keyword of banyan_sigma(). You can also call banyan_sigma() with use_rv=True to read them.')
-		if ('PSIRA' in stars_data.keys() and 'PSIRA' not in column_names.keys()) or ('PSIDEC' in stars_data.keys() and 'PSIDEC' not in column_names.keys()):
-			warnings.warn('The PSI parameters (PSIRA,PSIDEC) were not read from the input data, because the PSIRA and PSIDEC keys were not included in the column_data keyword of banyan_sigma(). You can also call banyan_sigma() with use_psi=True keyword to read them.')
+		if 'PLX' in stars_data.keys() and 'PLX' not in column_names.keys() and use_plx is None:
+			warnings.warn('Parallaxes (PLX) were not read from the input data, because the PLX key was not included in the column_names keyword of banyan_sigma(). You can also call banyan_sigma() with the use_plx=True keyword to read them, or with use_plx=False to avoid this warning message.')
+		if 'DIST' in stars_data.keys() and 'DIST' not in column_names.keys() and use_dist is None:
+			warnings.warn('Distances (DIST) were not read from the input data, because the DIST key was not included in the column_names keyword of banyan_sigma(). You can also call banyan_sigma() with the use_dist=True keyword to read them, or with use_dist=False to avoid this warning message.')
+		if 'RV' in stars_data.keys() and 'RV' not in column_names.keys() and use_rv is None:
+			warnings.warn('Radial velocities (RV) were not read from the input data, because the RV key was not included in the column_names keyword of banyan_sigma(). You can also call banyan_sigma() with use_rv=True to read them, or with use_rv=False to avoid this warning message.')
+		if ('PSIRA' in stars_data.keys() and 'PSIRA' not in column_names.keys()) or ('PSIDEC' in stars_data.keys() and 'PSIDEC' not in column_names.keys()) and use_psi is None:
+			warnings.warn('The PSI parameters (PSIRA,PSIDEC) were not read from the input data, because the PSIRA and PSIDEC keys were not included in the column_data keyword of banyan_sigma(). You can also call banyan_sigma() with use_psi=True keyword to read them, or with use_psi=False to avoid this warning message.')
 	
 	#Create a table of data for BANYAN SIGMA to use
 	if ra is not None:
@@ -276,7 +286,8 @@ def banyan_sigma(stars_data=None,column_names=None,hypotheses=None,ln_priors=Non
 	
 	#Fill up the data table with stars_data if it is specified
 	for keys in column_names.keys():
-		if (keys == 'PLX') or (keys == 'EPLX'):
+		#Skip special keys
+		if (keys == 'NAME') or (keys == 'PLX') or (keys == 'EPLX'):
 			continue
 		data_table[keys] = stars_data[column_names[keys]]
 	if 'PLX' in column_names.keys():
@@ -353,97 +364,417 @@ def banyan_sigma(stars_data=None,column_names=None,hypotheses=None,ln_priors=Non
 	if np.max(((data_table['PSIRA'] != 0.) | (data_table['PSIDEC'] != 0.)) & ((data_table['EPSIRA'] == 0.) | (data_table['EPSIDEC'] == 0.)) | (data_table['EPSIRA'] < 0.) | (data_table['EPSIDEC'] < 0.)):
 			raise ValueError('Some EPSIRA or EPSIDEC values are unphysical')
 	
+	#Fill the data table with empty RVs and distances if they were not specified
+	if 'RV' not in data_table.keys():
+		data_table['RV'] = np.nan
+	if 'ERV' not in data_table.keys():
+		data_table['ERV'] = np.nan
+	if 'DIST' not in data_table.keys():
+		data_table['DIST'] = np.nan
+	if 'EDIST' not in data_table.keys():
+		data_table['EDIST'] = np.nan
+	
 	#Data file containing the parameters of Bayesian hypotheses
 	parameters_file = os.path.dirname(__file__)+os.sep+'data'+os.sep+'banyan_sigma_parameters.fits'
 	
 	#Check if the file exists
 	if not os.path.isfile(parameters_file):
-		raise ValueError('The multivariate Gaussian parameters file could not be found ! Please make sure that you did not move "'+path_sep()+'data'+path_sep()+'banyan_sigma_parameters.fits" from the same path as the Python file banyan_sigma.py !')
+		raise ValueError('The multivariate Gaussian parameters file could not be found ! Please make sure that you did not move "'+os.sep+'data'+os.sep+'banyan_sigma_parameters.fits" from the same path as the Python file banyan_sigma.py !')
 	
 	#Read the parameters of Bayesian hypotheses
 	parameters_str = Table.read(parameters_file,format='fits')
 	#Remove white spaces in names
 	parameters_str['NAME'] = np.chararray.strip(np.array(parameters_str['NAME']))
+	#Index the table by hypothesis name
+	parameters_str.add_index('NAME')
 	npar = np.size(parameters_str)
 	
-	#Fix names that start with a number
-	for i in range(parameters_str['NAME']):
-		if parameters_str['NAME'][i][0].isdigit():
-			parameters_str['NAME'][i] = '_'+parameters_str['NAME'][i]
-			
-	[word[0].isdigit() for word in parameters_str['NAME']]
+	#Build a unique list of Bayesian hypotheses
+	if hypotheses is None:
+		hypotheses = np.array(parameters_str['NAME'])
+		indexes = np.unique(hypotheses,return_index=True)[1]
+		hypotheses = hypotheses[sorted(indexes)]
 	
-	pdb.set_trace()
+	#Make sure that hypotheses are all upper case
+	hypotheses = np.array([hyp.upper() for hyp in hypotheses.tolist()])
+	nhyp = hypotheses.size
 	
-	#Issue error if measurement errors are not listed
-	if 'PLX' in column_names.keys() and 'EPLX' not in column_names.keys():
-		raise ValueError('If parallaxes (PLX) are specified, error bars (EPLX) must also be specified')
+	#If constraint_dist_per_hyp is set, check that all hypotheses are included
+	if constraint_dist_per_hyp is not None:
+		if sorted(constraint_dist_per_hyp.keys()) != sorted(constraint_edist_per_hyp.keys()):
+			raise ValueError('The tag names of constraint_dist_per_hyp and constraint_edist_per_hyp are different')
+		if sorted(constraint_dist_per_hyp.keys()) != sorted(hypotheses.tolist()):
+			raise ValueError('The tag names of constraint_dist_per_hyp and the list of Bayesian hypotheses are different')
 		
-	if 'DIST' in column_names.keys() and 'EDIST' not in column_names.keys():
-		raise ValueError('If distances (DIST) are specified, error bars (EDIST) must also be specified')
+		#Build constraint_dist_per_hyp into an array
+		dist_per_hyp_arr = np.empty((nobj,nhyp))*np.nan
+		edist_per_hyp_arr = np.empty((nobj,nhyp))*np.nan
+		#Read the distance constraints for each Bayesian hypothesis
+		for i in range(nhyp):
+			dist_per_hyp_arr[:,i] = constraint_dist_per_hyp[hypotheses[i]]
+			edist_per_hyp_arr[:,i] = constraint_edist_per_hyp[hypotheses[i]]
+		
+		#Verify that all distance constraints are physical
+		if np.max(dist_per_hyp_arr < 0. | edist_per_hyp_arr <= 0.):
+			raise ValueError('Some of the specified constraint_dist_per_hyp or constraint_edist_per_hyp values are unphysical')
+		if np.max(np.isfinite(dist_per_hyp_arr) & np.isnan(edist_per_hyp_arr)):
+			raise ValueError('Some of the specified constraint_edist_per_hyp are not finite where constraint_dist_per_hyp are finite')
+		
+		#Check that either all or none of the distance constraints are finite for a given object
+		if np.max(np.isfinite(np.nansum(dist_per_hyp_arr,axis=1)) and np.isnan(np.sum(dist_per_hyp_arr,axis=1))):
+			raise ValueError('The constraint_dist_per_hyp and constraint_edist_per_hyp values must be all finite or all non-finite for a given star')
 	
-	if 'RV' in column_names.keys() and 'ERV' not in column_names.keys():
-		raise ValueError('If radial velocities (RV) are specified, error bars (ERV) must also be specified')
+	#Override priors to unity if the keyword unit_priors is set
+	if unit_priors is True:
+		parameters_str['LN_PRIOR'] = 0.
 	
-	#Issue an error if both DIST and PLX are given in column_names
-	if 'PLX' in column_names.keys() and 'DIST' in column_names.keys():
-		raise ValueError('Distances (DIST) and parallaxes (PLX) cannot both be specified')
+	#Determine whether a trigonometric distance or a per-hypothesis distance constraint was set
+	if constraint_dist_per_hyp is not None:
+		distance_is_set = (np.isfinite(data_table['DIST']) | np.isfinite(np.nansum(dist_per_hyp_arr,axis=1)))
+	else:
+		distance_is_set = np.isfinite(data_table['DIST'])
 	
-	#Issue an error if only parts of the PSI measurements or errors are given
-	if 'PSIRA' in column_names.keys() ^ 'PSIDEC' in column_names.keys():
-		raise ValueError('If the PSIRA keyword is specified, PSIDEC must also be specified')
-	if ('PSIRA' in column_names.keys() and 'EPSIRA' not in column_names.keys()) or ('PSIDEC' in column_names.keys() and 'EPSIDEC' not in column_names.keys()):
-		raise ValueError('If the PSIRA and PSIDEC keywords are specified, EPSIRA and EPSIDEC must also be specified')
+	#Assign the correct Bayesian priors to each star
+	g_pm = (np.where(np.isnan(data_table['RV']) & (~distance_is_set)))[0]
+	g_pm_rv = (np.where(np.isfinite(data_table['RV']) & (~distance_is_set)))[0]
+	g_pm_dist = (np.where(np.isnan(data_table['RV']) & distance_is_set))[0]
+	g_pm_rv_dist = (np.where(np.isfinite(data_table['RV']) & distance_is_set))[0]
+	ln_priors_nd = np.zeros((nobj,nhyp))
+	ln_priors_nd_manual = np.zeros((nobj,nhyp))
+	for i in range(nhyp):
+		#Skip the field hypotheses as they do not have a Bayesian prior
+		if hypotheses[i].find('FIELD') != -1:
+			continue
+		#Read the parameters structure to identify the 4 priors associated with a given young association
+		ln_priors_i = parameters_str.loc[hypotheses[i]]['LN_PRIOR']
+		#In the cases where only one prior is designated, assign it to all stars
+		if ln_priors_i.size == 1:
+			ln_priors_nd[:,i] = ln_priors_i[0]
+		else:
+			#Otherwise assign them properly as a function of available observables
+			ln_priors_nd[g_pm,i] = ln_priors_i[0]
+			ln_priors_nd[g_pm_rv,i] = ln_priors_i[1]
+			ln_priors_nd[g_pm_dist,i] = ln_priors_i[2]
+			ln_priors_nd[g_pm_rv_dist,i] = ln_priors_i[3]
 	
+	#Include manual priors if they are specified as an input structure
+	if ln_priors is not None:
+		for i in range(nhyp):
+			#The field hypotheses *can* have manual priors
+			if hypotheses[i] not in ln_priors.keys():
+				warnings.warn('The prior for hypothesis '+hypotheses[i]+' was left to its default value as it was not specified manually')
+				continue
+			ln_priors_nd_manual[:,i] = ln_priors[hypotheses[i]]
+		
+		#Normalize manual priors with the field hypothesis (because they get applied only on young associations)
+		gnorm = np.where(['FIELD' in hyp for hyp in hypotheses.tolist()])
+		norm_priors_1d = logsumexp(ln_priors_nd_manual[:,gnorm[0]],axis=1)
+		ln_priors_nd_manual -= np.tile(norm_priors_1d,(nhyp,1)).transpose()
+		
+		#Apply the manual priors on top of the default priors
+		ln_priors_nd += ln_priors_nd_manual
+	
+	#If both trigonometric distances and per-hypothesis distance constraints are set, transform the per-hypothesis distance constraints into priors
+	both_distances_set = []
+	if constraint_dist_per_hyp is not None:
+		both_distances_set = np.where(np.isfinite(data_table['DIST']) & np.isfinite(np.nansum(dist_per_hyp_arr,axis=1)))
+	if np.size(both_distances_set) != 0:
+		xdist_measured = np.tile(data_table['DIST'][both_distances_set[0]],(nhyp,1)).transpose()
+		xedist_measured = np.tile(data_table['EDIST'][both_distances_set[0]],(nhyp,1)).transpose()
+		ln_prob_dist_differences = -(xdist_measured-dist_per_hyp_arr[both_distances_set[0],:])**2/(2.0*(xedist_measured**2+edist_per_hyp_arr[both_distances_set[0],:]**2))
+		
+		#Treat these values as priors so normalize them with the field hypotheses (because they get applied only on young associations)
+		gnorm = np.where(['FIELD' in hyp for hyp in hypotheses.tolist()])
+		norm_priors_1d = logsumexp(ln_prob_dist_differences[:,gnorm[0]],axis=1)
+		ln_prob_dist_differences -= np.tile(norm_priors_1d,(nhyp,1)).transpose()
+		
+		#Apply these values on the priors
+		ln_priors_nd[both_distances_set[0],L] += ln_prob_dist_differences
+		
+		#Remove the per-hypothesis distance constraints on these particular objects and just keep the trigonometric distances
+		dist_per_hyp_arr[both_distances_set[0],:] = np.nan
+		edist_per_hyp_arr[both_distances_set[0],:] = np.nan
+	
+	#Initiate an array that will contain the ln probabilities if those are the only required outputs
+	if lnp_only is True:
+		all_lnprobs = np.empty((nobj,nhyp))*np.nan
+	
+	#Loop on hypotheses to run BANYAN Sigma on
+	output_str_allhyps_list = []
+	for i in range(nhyp):
+		#print("HYP "+str(i))
+		
+		#If constraint_dist_per_hyp is set, determine which distance constraint must be used now
+		dist_for_this_hypothesis = data_table['DIST']
+		edist_for_this_hypothesis = data_table['EDIST']
+		if constraint_dist_per_hyp is not None:
+			gdist_per_hyp = np.where(np.isfinite(constraint_dist_per_hyp[:,i]))
+			dist_for_this_hypotheses[gdist_per_hyp[0]] = constraint_dist_per_hyp[gdist_per_hyp[0],i]
+			edist_for_this_hypotheses[gdist_per_hyp[0]] = constraint_edist_per_hyp[gdist_per_hyp[0],i]
+		
+		#Loop over individual multivariate Gaussians if the model is a mixture
+		ngauss = np.size(parameters_str.loc[hypotheses[i]])
+		
+		output_str_multimodel_list = []
+		if lnp_only is True:
+			all_lnprobs_hypi = np.zeros((nobj,ngauss))
+		
+		for gaussi in range(ngauss):
+			
+			#Somehow we cannot access the Gaussian index without the table breaking when there is just one Gaussian component, so here we grab the right table row
+			if ngauss == 1:
+				parameters_str_row = parameters_str.loc[hypotheses[i]]
+			else:
+				parameters_str_row = parameters_str.loc[hypotheses[i]][gaussi]
+			
+			#Determine how many batches will be needed to avoid saturating the RAM
+			nbatches = np.int(np.ceil(nobj/ntargets_max))
+			output_str_list = []
+			for ci in range(nbatches):
+				#Determine the indices of the stars to be selected
+				ind_from = np.int(np.round(ci*ntargets_max))
+				ind_to = np.int(ind_from + np.round(ntargets_max))
+				ind_to = np.minimum(ind_to,np.int(nobj))
+				
+				#Create a sub-structure of input data
+				data_table_ci = data_table[ind_from:ind_to]
+				dist_for_this_hypothesis_ci = dist_for_this_hypothesis[ind_from:ind_to]
+				edist_for_this_hypothesis_ci = edist_for_this_hypothesis[ind_from:ind_to]
+				nobj_ci = np.size(data_table_ci)
+				
+				#Solve the BANYAN Sigma integrals for this hypothesis and this batch of targets
+				output_str_ci = banyan_sigma_solve_multivar(data_table_ci['RA'],data_table_ci['DEC'],data_table_ci['PMRA'],data_table_ci['PMDEC'],data_table_ci['EPMRA'],data_table_ci['EPMDEC'],rv_measured=data_table_ci['RV'],rv_error=data_table_ci['ERV'],dist_measured=dist_for_this_hypothesis_ci,dist_error=edist_for_this_hypothesis_ci,psira=data_table_ci['PSIRA'],psidec=data_table_ci['PSIDEC'],psira_error=data_table_ci['EPSIRA'],psidec_error=data_table_ci['EPSIDEC'],precision_matrix=parameters_str_row['PRECISION_MATRIX'],center_vec=parameters_str_row['CENTER_VEC'],precision_matrix_determinant=parameters_str_row['PRECISION_DETERM'],debug=(i==4 and ci==19))
+				
+				#Store the log of probabilities if those are the only required output
+				if lnp_only is True:
+					all_lnprobs_hypi[ind_from:ind_to,gaussi] = output_str_ci['LN_P']
+					continue
+				
+				#Append the dataframe in the Python list
+				output_str_list.append(output_str_ci)
+			
+			#Contatenate the list of Dataframes
+			output_str = pd.concat(output_str_list,ignore_index=True)
+			
+			#Reformat the output structure if this hypothesis is a multivariate Gaussian mixture
+			if ngauss != 1:
+				#Use column multi-indexing to add a second title to the columns, which corresponds to the ID if the Gaussian mixture component
+				dataframe_column_names = output_str.columns
+				output_str.columns = [np.array(dataframe_column_names),np.array(np.tile('Gauss'+str(gaussi),dataframe_column_names.size))]
+				output_str_multimodel_list.append(output_str)
+		
+		#If only log probs are required, compile them in the main array
+		if lnp_only is True:
+			if ngauss == 1:
+				all_lnprobs[:,i] = all_lnprobs_hypi
+			else:
+				weights = parameters_str.loc[hypotheses[i]]['COEFFICIENT']
+				weights /= np.sum(weights)
+				all_lnprobs[:,i] = logsumexp(np.tile(np.log(weights),(nobj,1))+all_lnprobs_hypi,axis=1)
+			continue
+		
+		#Reformat the output structure if there is more than one multivariate gaussian
+		if ngauss != 1:
+			#Concatenate the list of pandas dataframes into a single dataframe
+			output_str_multimodel = pd.concat(output_str_multimodel_list,axis=1)
+			
+			#Create a 2D array of weights to combine the Gaussian mixture components
+			weights = parameters_str.loc[hypotheses[i]]['COEFFICIENT']
+			weights /= np.sum(weights)
+			logweights_2d = np.tile(np.log(weights),(nobj,1))
+			
+			#Combine each column of the dataframe with a weighted average
+			output_str = pd.DataFrame()
+			for coli in output_str_multimodel.columns.get_level_values(0):
+				output_str[coli] = logsumexp(logweights_2d+output_str_multimodel[coli],axis=1)
+	
+		#Use column multi-indexing to add a second title to the columns, which corresponds to the name of the Bayesian hypothesis
+		dataframe_column_names = output_str.columns
+		output_str.columns = [np.array(dataframe_column_names),np.array(np.tile(hypotheses[i],dataframe_column_names.size))]
+		
+		#Add the dataframe to the per-hypothesis list of dataframes
+		output_str_allhyps_list.append(output_str)
+	
+	#Concatenate the list of pandas dataframes into a single dataframe
+	output_str_all = pd.concat(output_str_allhyps_list,axis=1)
+	
+	#Fetch all log probabilities (if lnp_only is set, this variable already exists)
+	if lnp_only is False:
+		all_lnprobs = output_str_all['LN_P'].values
+	
+	#Normalize probabilities directly in log space
+	ln_norm_output = all_lnprobs - np.tile(logsumexp(all_lnprobs,axis=1),(nhyp,1)).transpose()
+	
+	#Compute [0,1] probabilities
+	norm_output = np.exp(ln_norm_output)
+	
+	#Identify hypotheses that correspond to moving groups or associations
+	yind = (np.where(np.array([hypothesis.find('FIELD') == -1 for hypothesis in hypotheses])))[0]
+	
+	#Create an array of normalized YMG probabilities (no field)
+	ln_norm_output_only_ymg = all_lnprobs[:,yind] - np.tile(logsumexp(all_lnprobs[:,yind],axis=1),(yind.size,1)).transpose()
+	
+	#Calculate the weighted YMG prior
+	ln_prior_moving_groups = logsumexp(ln_priors_nd[:,yind]+ln_norm_output_only_ymg,axis=1)
+	
+	#Identify hypotheses that correspond to the field
+	ffind = (np.where(np.array([hypothesis.find('FIELD') != -1 for hypothesis in hypotheses])))[0]
+	
+	#Weight the priors w/r/t the Bayesian probabilities and project these priors onto the field. This is a way to avoid having the priors change the relative moving group probabilities, as their goal is strictly to maximize young association vs FIELD classification performance
+  	#Normalize probabilities directly in log space, projecting the inverse young association prior on the field probability
+	ln_P_with_prior = all_lnprobs
+	ln_P_with_prior[:,ffind] -= np.tile(ln_prior_moving_groups,(ffind.size,1)).transpose()
+	#Renormalize
+	ln_norm_output_prior = ln_P_with_prior - np.tile(logsumexp(ln_P_with_prior,axis=1),(nhyp,1)).transpose()
+	
+	#Return log probabilities if this is the only required output
+	if lnp_only is True:
+		return ln_norm_output_prior
+	
+	#Compute [0,1] probabilities
+	norm_output_prior = np.exp(ln_norm_output_prior)
+	
+	#Data file containing the parameters of Bayesian hypotheses
+	metrics_computed = False
+	metrics_file = os.path.dirname(__file__)+os.sep+'data'+os.sep+'banyan_sigma_metrics.fits'
+	
+	#Check if the file exists
+	if not os.path.isfile(metrics_file):
+		warnings.warn('The performance metrics file could not be found ! Performance metrics will not be calculated. Please make sure that you did not move "'+os.sep+'data'+os.sep+'banyan_sigma_metrics.fits" from the same path as the Python file banyan_sigma.py !')
+	
+	#Avoid computing biased metrics if the unit_priors keyword was set
+	if os.path.isfile(metrics_file) and unit_priors is False:
+		metrics_str = Table.read(metrics_file,format='fits')
+		#Remove white spaces in association names
+		metrics_str['NAME'] = np.chararray.strip(np.array(metrics_str['NAME']))
+		#Index the table by hypothesis name
+		metrics_str.add_index('NAME')
+		
+		#Loop on young associations to determine their individual metrics
+		tpr = np.empty((nobj,yind.size))*np.nan
+		fpr = np.empty((nobj,yind.size))*np.nan
+		ppv = np.empty((nobj,yind.size))*np.nan
+		for yindi in range(yind.size):
+			#Calculate the individual normalized probabilities for a given young association
+			probs_yindi = np.exp(ln_norm_output_prior[:,yindi] - logsumexp(ln_norm_output_prior[:,[yindi,ffind[0]]],axis=1))
+			#Store the interpolated values depending on observables
+			if g_pm.size != 0:
+				mode_index = 0
+				tpr[g_pm,yindi] = np.interp(probs_yindi[g_pm],metrics_str.loc[hypotheses[yind[yindi]]]['PROBS'],metrics_str.loc[hypotheses[yind[yindi]]]['TPR'][mode_index,:])
+				fpr[g_pm,yindi] = np.interp(probs_yindi[g_pm],metrics_str.loc[hypotheses[yind[yindi]]]['PROBS'],metrics_str.loc[hypotheses[yind[yindi]]]['FPR'][mode_index,:])
+				ppv[g_pm,yindi] = np.interp(probs_yindi[g_pm],metrics_str.loc[hypotheses[yind[yindi]]]['PROBS'],metrics_str.loc[hypotheses[yind[yindi]]]['PPV'][mode_index,:])
+			if g_pm_rv.size != 0:
+				mode_index = 1
+				tpr[g_pm_rv,yindi] = np.interp(probs_yindi[g_pm_rv],metrics_str.loc[hypotheses[yind[yindi]]]['PROBS'],metrics_str.loc[hypotheses[yind[yindi]]]['TPR'][mode_index,:])
+				fpr[g_pm_rv,yindi] = np.interp(probs_yindi[g_pm_rv],metrics_str.loc[hypotheses[yind[yindi]]]['PROBS'],metrics_str.loc[hypotheses[yind[yindi]]]['FPR'][mode_index,:])
+				ppv[g_pm_rv,yindi] = np.interp(probs_yindi[g_pm_rv],metrics_str.loc[hypotheses[yind[yindi]]]['PROBS'],metrics_str.loc[hypotheses[yind[yindi]]]['PPV'][mode_index,:])
+			if g_pm_dist.size != 0:
+				mode_index = 2
+				tpr[g_pm_dist,yindi] = np.interp(probs_yindi[g_pm_dist],metrics_str.loc[hypotheses[yind[yindi]]]['PROBS'],metrics_str.loc[hypotheses[yind[yindi]]]['TPR'][mode_index,:])
+				fpr[g_pm_dist,yindi] = np.interp(probs_yindi[g_pm_dist],metrics_str.loc[hypotheses[yind[yindi]]]['PROBS'],metrics_str.loc[hypotheses[yind[yindi]]]['FPR'][mode_index,:])
+				ppv[g_pm_dist,yindi] = np.interp(probs_yindi[g_pm_dist],metrics_str.loc[hypotheses[yind[yindi]]]['PROBS'],metrics_str.loc[hypotheses[yind[yindi]]]['PPV'][mode_index,:])
+			if g_pm_rv_dist.size != 0:
+				mode_index = 3
+				tpr[g_pm_rv_dist,yindi] = np.interp(probs_yindi[g_pm_rv_dist],metrics_str.loc[hypotheses[yind[yindi]]]['PROBS'],metrics_str.loc[hypotheses[yind[yindi]]]['TPR'][mode_index,:])
+				fpr[g_pm_rv_dist,yindi] = np.interp(probs_yindi[g_pm_rv_dist],metrics_str.loc[hypotheses[yind[yindi]]]['PROBS'],metrics_str.loc[hypotheses[yind[yindi]]]['FPR'][mode_index,:])
+				ppv[g_pm_rv_dist,yindi] = np.interp(probs_yindi[g_pm_rv_dist],metrics_str.loc[hypotheses[yind[yindi]]]['PROBS'],metrics_str.loc[hypotheses[yind[yindi]]]['PPV'][mode_index,:])
+		
+		#Build the combination weights
+		ln_weights = np.copy(ln_norm_output_only_ymg)
+		#Any group with less than 1% probability is ignored to avoid propagating potential NaNs
+		ln_weights[np.where(ln_weights < np.log(1e-2))] = np.log(tiny_number)
+		#Re-normalize weights
+		ln_weights -= np.tile(logsumexp(ln_weights,axis=1),(yind.size,1)).transpose()
+		
+		#Calculate the weighted metrics
+		tpr_weighted = np.exp(logsumexp(np.log(np.maximum(tpr,tiny_number))+ln_weights,axis=1))
+		fpr_weighted = np.exp(logsumexp(np.log(np.maximum(fpr,tiny_number))+ln_weights,axis=1))
+		ppv_weighted = np.exp(logsumexp(np.log(np.maximum(ppv,tiny_number))+ln_weights,axis=1))
+		metrics_computed = True
+	
+	#Determine the most probable hypothesis
+	most_probable_index = np.nanargmax(norm_output_prior,axis=1)
+	
+	#Loop on objects to determine lists of good hypotheses
+	hyp_lists = []
+	best_ya = []
+	norm_output_only_ymg = np.exp(ln_norm_output_only_ymg)
+	for obji in range(nobj):
+		#Identify all young associations with relative P>5%
+		ind_obji = (np.where(norm_output_only_ymg[obji,:] > .05))[0]
+		if len(ind_obji) == 0:
+			hyp_lists.append('FIELD')
+			best_ya.append('FIELD')
+			continue
+		
+		#Find the most probable moving group
+		best_ya_ind = np.nanargmax(norm_output_only_ymg[obji,:])
+		best_ya.append(hypotheses[yind][best_ya_ind])
+		
+		#Sort by decreasing P
+		ind_obji = ind_obji[np.flip(np.argsort(norm_output_only_ymg[obji,ind_obji]),axis=0)]
+		#Build a list of associations
+		if len(ind_obji) > 1:
+			hyp_lists.append(';'.join([x+y for x,y in zip(hypotheses[yind][ind_obji].tolist(),['('+str(x)+')' for x in np.round(norm_output_only_ymg[obji,ind_obji]*1e2).astype(int).tolist()])]))
+		if len(ind_obji) == 1:
+			hyp_lists.append(hypotheses[yind][best_ya_ind])
+	
+	#Build a final output dataframe
+	output_final = pd.DataFrame()
+	
+	#Store the star names if they are given
+	if 'NAME' in data_table.keys():
+		output_final['NAME'] = data_table['NAME']
+	
+	#Store global results
+	output_final['YA_PROB'] = np.nansum(norm_output_prior[:,yind],axis=1)
+	output_final['LIST_PROB_YAS'] = hyp_lists
+	output_final['BEST_HYP'] = hypotheses[most_probable_index]
+	output_final['BEST_YA'] = best_ya
+	
+	#Add a second column title "General"
+	dataframe_column_names = output_final.columns
+	output_final.columns = [np.array(dataframe_column_names),np.array(np.tile('Global',dataframe_column_names.size))]
+	
+	if metrics_computed is True:
+		output_final['TPR','Metrics'] = tpr_weighted
+		output_final['FPR','Metrics'] = fpr_weighted
+		output_final['PPV','Metrics'] = ppv_weighted
+		output_final['NFP','Metrics'] = fpr_weighted*total_besancon_objects
+	
+	#Create a Dataframe with all probabilities
+	probs_frame = pd.DataFrame(norm_output_prior,columns=[np.array(np.tile('All',nhyp)),hypotheses])
+	
+	#Add the per-group stuff
+	if metrics_computed is True:
+		output_final = pd.concat([output_str_all.swaplevel(axis=1),probs_frame,output_final.swaplevel(axis=1)[['Metrics']],output_final.swaplevel(axis=1)[['Global']].swaplevel(axis=1)],axis=1)
+	else:
+		output_final = pd.concat([output_str_all.swaplevel(axis=1),probs_frame,output_final.swaplevel(axis=1)[['Global']].swaplevel(axis=1)],axis=1)
+	
+	#Add star names if they were provided
+	if 'NAME' in data_table.keys():
+		output_final.index = data_table['NAME']
+	
+	#Return the final structure
+	stop()
+	return output_final
+	
+	#THIS SHOULD BE THERE IN IDL TOO
 	#Issue an error if some of the column_names entries are not present in stars_data
-	for key in column_names.keys():
-		if column_names[key] not in stars_data.keys():
-			raise ValueError('The "'+key+'" keyword is not present in the input data structure')
+	#for key in column_names.keys():
+	#	if column_names[key] not in stars_data.keys():
+	#		raise ValueError('The "'+key+'" keyword is not present in the input data structure')
+
+def view_global(x):
+	#print(x.swaplevel(axis=1)['Global'])
+	print(x.xs('Global',level=1,axis=1))
+
+#def view_metrics(x):
+#	#print(x.swaplevel(axis=1)['Metrics'])
+#	x.xs('Metrics',level=1,axis=1)
+
 	
-	#Read the multivariate Gaussian parameters 
-	params_file_path = os.environ['BANYAN_SIGMA_PARAMETERS']
-	if not os.path.isfile(params_file_path):
-		raise ValueError('The Gaussian parameters file could not be found at "'+params_file_path+'" !')
-	parameters_str = Table.read(params_file_path,format='fits')
-	
-	#Read distance measurements from either the PLX or DIST keywords
-	dist_measured = None
-	dist_error = None
-	if 'PLX' in column_names.keys():
-		plx_measured = stars_data[column_names['PLX']]
-		plx_error = stars_data[column_names['EPLX']]
-		dist_measured = 1e3/plx_measured
-		dist_error = 1e3/plx_measured**2*plx_error
-	if 'DIST' in column_names.keys():
-		dist_measured = stars_data[column_names['DIST']]
-		dist_error = stars_data[column_names['EDIST']]
-	
-	#Read RV measurements
-	rv_measured = None
-	rv_error = None
-	if 'RV' in column_names.keys():
-		rv_measured = stars_data[column_names['RV']]
-		rv_error = stars_data[column_names['ERV']]
-	
-	#Read PSI measurements
-	psira = None
-	psidec = None
-	psira_error = None
-	psidec_error = None
-	if 'PSIRA' in column_names.keys():
-		psira = stars_data[column_names['PSIRA']]
-		psidec = stars_data[column_names['PSIDEC']]
-		psira_error = stars_data[column_names['EPSIRA']]
-		psidec_error = stars_data[column_names['EPSIDEC']]
-	
-	i = 0
-	outi = banyan_sigma_solve_multivar(stars_data[column_names['RA']],stars_data[column_names['DEC']],stars_data[column_names['PMRA']],stars_data[column_names['PMDEC']],stars_data[column_names['EPMRA']],stars_data[column_names['EPMDEC']],rv_measured=rv_measured,rv_error=rv_error,dist_measured=dist_measured,dist_error=dist_error,psira=psira,psidec=psidec,psira_error=psira_error,psidec_error=psidec_error,precision_matrix=parameters_str[i]['PRECISION_MATRIX'],center_vec=parameters_str[i]['CENTER_VEC'],precision_matrix_determinant=parameters_str[i]['PRECISION_DETERM'])
-	pdb.set_trace()
-	
-	lnP = 0.
-	return lnP
-	
-def banyan_sigma_solve_multivar(ra,dec,pmra,pmdec,pmra_error,pmdec_error,precision_matrix=None,center_vec=None,rv_measured=None,rv_error=None,dist_measured=None,dist_error=None,psira=None,psidec=None,psira_error=None,psidec_error=None,lnP_only=False,precision_matrix_determinant=None):
+def banyan_sigma_solve_multivar(ra,dec,pmra,pmdec,pmra_error,pmdec_error,precision_matrix=None,center_vec=None,rv_measured=None,rv_error=None,dist_measured=None,dist_error=None,psira=None,psidec=None,psira_error=None,psidec_error=None,lnP_only=False,precision_matrix_determinant=None,debug=False):
 	#PROBLEM: PSIRA_ERROR AND PSIDEC_ERROR ARE NOT USED ?
 	"""
 	Solve the radial velocity and distance marginalization integrals (if needed) and compute log(probability) with Bayes theorem for an array of stars and a single multivariate Gaussian XYZUVW model. This is a subroutine of banyan_sigma.
@@ -503,7 +834,7 @@ def banyan_sigma_solve_multivar(ra,dec,pmra,pmdec,pmra_error,pmdec_error,precisi
 	lambda_vector = np.array([cos_gb*cos_gl,cos_gb*sin_gl,sin_gb]).transpose()
 	
 	#Build matrices A and B to convert sky quantities in the Galactic coordinates frame. The A matrix is defined in Gagne et al. (2017, ApJS, X, Y, equation 7)
-	A_matrix = np.empty((num_stars,3,3))
+	A_matrix = np.zeros((num_stars,3,3))
 	cos_ra = np.cos(np.radians(ra))
 	cos_dec = np.cos(np.radians(dec))
 	sin_ra = np.sin(np.radians(ra))
@@ -529,7 +860,7 @@ def banyan_sigma_solve_multivar(ra,dec,pmra,pmdec,pmra_error,pmdec_error,precisi
 	
 	#The varphi vector is defined in Gagne et al. (2017, ApJS, X, Y, equation 20)
 	if psira is not None:
-		varphi_vector_sub = np.array([np.zeros(num_stars),np.array(kappa*psira), np.array(kappa*psidec)])
+		varphi_vector_sub = np.array([np.zeros(num_stars),np.array(kappa*psira), np.array(kappa*psidec)]).transpose()
 		varphi_vector = matrix_vector_set_product(B_matrix,varphi_vector_sub)
 	
 	#OMEGA is defined in Gagne et al. (2017, ApJS, X, Y, equation 6)
@@ -546,7 +877,7 @@ def banyan_sigma_solve_multivar(ra,dec,pmra,pmdec,pmra_error,pmdec_error,precisi
 	#tau is defined in Gagne et al. (2017, ApJS, X, Y, equation 5)
 	TAU_vector = np.repeat(center_vec.reshape(1,6),num_stars,axis=0)
 	if psira is not None:
-		tau_vector += PHI_vector
+		TAU_vector += PHI_vector
 	
 	#Take scalar products in multivariate space
 	OMEGA_OMEGA = scalar_set_product_multivariate(OMEGA_vector,OMEGA_vector,precision_matrix)
@@ -559,7 +890,7 @@ def banyan_sigma_solve_multivar(ra,dec,pmra,pmdec,pmra_error,pmdec_error,precisi
 	#If radial velocity or distance measurements are given, propagate them to the relevant scalar products
 	if dist_measured is not None and dist_error is not None:
 		#Find where measured distances are finite
-		finite_ind = np.where(np.isfinite(dist_measured) and np.isfinite(dist_error))
+		finite_ind = np.where(np.isfinite(dist_measured) & np.isfinite(dist_error))
 		if np.size(finite_ind) != 0:
 			norm = np.maximum(dist_error[finite_ind],1e-3)**2
 			GAMMA_GAMMA[finite_ind] += 1.0/norm
@@ -567,7 +898,7 @@ def banyan_sigma_solve_multivar(ra,dec,pmra,pmdec,pmra_error,pmdec_error,precisi
 			TAU_TAU[finite_ind] += dist_measured[finite_ind]**2/norm
 	if rv_measured is not None and rv_error is not None:
 		#Find where measured RVs are finite
-		finite_ind = np.where(np.isfinite(rv_measured) and np.isfinite(rv_error))
+		finite_ind = np.where(np.isfinite(rv_measured) & np.isfinite(rv_error))
 		if np.size(finite_ind) != 0:
 			norm = np.maximum(rv_error[finite_ind],1e-3)**2
 			OMEGA_OMEGA[finite_ind] += 1.0/norm
@@ -582,6 +913,8 @@ def banyan_sigma_solve_multivar(ra,dec,pmra,pmdec,pmra_error,pmdec_error,precisi
 	
 	#Calculate optimal distance and radial velocity
 	beta = (GAMMA_GAMMA - OMEGA_GAMMA**2/OMEGA_OMEGA)/2.0
+	if ~np.isfinite(min(beta)):
+		pdb.set_trace()
 	if np.nanmin(beta) < 0:
 		raise ValueError('beta has an ill-defined value !')
 	gamma = OMEGA_GAMMA*OMEGA_TAU/OMEGA_OMEGA - GAMMA_TAU
@@ -591,17 +924,16 @@ def banyan_sigma_solve_multivar(ra,dec,pmra,pmdec,pmra_error,pmdec_error,precisi
 	#Create arrays that contain the measured RV and distance if available, or the optimal values otherwise
 	dist_optimal_or_measured = dist_optimal
 	if dist_measured is not None and dist_error is not None:
-		finite_ind = np.where(np.isfinite(dist_measured) and np.isfinite(dist_error))
+		finite_ind = np.where(np.isfinite(dist_measured) & np.isfinite(dist_error))
 		if np.size(finite_ind) != 0:
 			dist_optimal_or_measured[finite_ind] = dist_measured[finite_ind]
 	rv_optimal_or_measured = rv_optimal
 	if rv_measured is not None and rv_error is not None:
-		finite_ind = np.where(np.isfinite(rv_measured) and np.isfinite(rv_error))
+		finite_ind = np.where(np.isfinite(rv_measured) & np.isfinite(rv_error))
 		if np.size(finite_ind) != 0:
 			rv_optimal_or_measured[finite_ind] = rv_measured[finite_ind]
 	
 	#Propagate proper motion measurement errors
-	#equatorial_XYZ(ra,dec,dist,dist_error=dist_error)
 	EX = np.zeros(num_stars)
 	EY = np.zeros(num_stars)
 	EZ = np.zeros(num_stars)
@@ -637,7 +969,7 @@ def banyan_sigma_solve_multivar(ra,dec,pmra,pmdec,pmra_error,pmdec_error,precisi
 	#If radial velocity or distance measurements are given, propagate them to the relevant scalar products
 	if dist_measured is not None and dist_error is not None:
 		#Find where measured distances are finite
-		finite_ind = np.where(np.isfinite(dist_measured) and np.isfinite(dist_error))
+		finite_ind = np.where(np.isfinite(dist_measured) & np.isfinite(dist_error))
 		if np.size(finite_ind) != 0:
 			norm = np.maximum(dist_error[finite_ind],1e-3)**2
 			GAMMA_GAMMA[finite_ind] += 1.0/norm
@@ -645,7 +977,7 @@ def banyan_sigma_solve_multivar(ra,dec,pmra,pmdec,pmra_error,pmdec_error,precisi
 			TAU_TAU[finite_ind] += dist_measured[finite_ind]**2/norm
 	if rv_measured is not None and rv_error is not None:
 		#Find where measured RVs are finite
-		finite_ind = np.where(np.isfinite(rv_measured) and np.isfinite(rv_error))
+		finite_ind = np.where(np.isfinite(rv_measured) & np.isfinite(rv_error))
 		if np.size(finite_ind) != 0:
 			norm = np.maximum(rv_error[finite_ind],1e-3)**2
 			OMEGA_OMEGA[finite_ind] += 1.0/norm
@@ -670,7 +1002,7 @@ def banyan_sigma_solve_multivar(ra,dec,pmra,pmdec,pmra_error,pmdec_error,precisi
 	
 	lnP_coeff = -0.5*np.log(OMEGA_OMEGA) - 2.5*np.log(beta) + 0.5*np.log(precision_matrix_inflated_determinant)
 	lnP_part1 = xarg**2/2.0 - zeta
-	lnP_part2 = np.log(np.maximum(parabolic_cylinder_f5_mod(xarg),0))
+	lnP_part2 = np.log(np.maximum(parabolic_cylinder_f5_mod(xarg),tiny_number))
 	lnP = lnP_coeff + lnP_part1 + lnP_part2
 	
 	#Return ln_P if only this is required
@@ -681,14 +1013,14 @@ def banyan_sigma_solve_multivar(ra,dec,pmra,pmdec,pmra_error,pmdec_error,precisi
 	dist_optimal_or_measured = dist_optimal
 	edist_optimal_or_measured = edist_optimal
 	if dist_measured is not None and dist_error is not None:
-		finite_ind = np.where(np.isfinite(dist_measured) and np.isfinite(dist_error))
+		finite_ind = np.where(np.isfinite(dist_measured) & np.isfinite(dist_error))
 		if np.size(finite_ind) != 0:
 			dist_optimal_or_measured[finite_ind] = dist_measured[finite_ind]
 			edist_optimal_or_measured[finite_ind] = dist_error[finite_ind]
 	rv_optimal_or_measured = rv_optimal
 	erv_optimal_or_measured = erv_optimal
 	if rv_measured is not None and rv_error is not None:
-		finite_ind = np.where(np.isfinite(rv_measured) and np.isfinite(rv_error))
+		finite_ind = np.where(np.isfinite(rv_measured) & np.isfinite(rv_error))
 		if np.size(finite_ind) != 0:
 			rv_optimal_or_measured[finite_ind] = rv_measured[finite_ind]
 			erv_optimal_or_measured[finite_ind] = rv_error[finite_ind]
@@ -711,8 +1043,8 @@ def banyan_sigma_solve_multivar(ra,dec,pmra,pmdec,pmra_error,pmdec_error,precisi
 	XYZ_sig = np.sqrt(scalar_set_product_multivariate_variablemetric(vec[:,0:3],vec[:,0:3],precision_matrix_inflated[:,0:3,0:3]))
 	UVW_sig = np.sqrt(scalar_set_product_multivariate_variablemetric(vec[:,3:6],vec[:,3:6],precision_matrix_inflated[:,3:6,3:6]))
 	
-	#Store relevant data in an output table
-	output_structure = Table((lnP,dist_optimal,rv_optimal,edist_optimal,erv_optimal,XYZUVW,EXYZUVW,XYZ_sep,UVW_sep,XYZ_sig,UVW_sig,mahalanobis),names=('LN_P','D_OPT','RV_OPT','ED_OPT','ERV_OPT','XYZUVW','EWXYZUVW','XYZ_SEP','UVW_SEP','XYZ_SIG','UVW_SIG','MAHALANOBIS'))
+	#Store the data in a pandas dataframe
+	output_structure = pd.DataFrame(np.array([lnP,dist_optimal,rv_optimal,edist_optimal,erv_optimal,X,Y,Z,U,V,W,EX,EY,EZ,EU,EV,EW,XYZ_sep,UVW_sep,XYZ_sig,UVW_sig,mahalanobis]).transpose(),columns=['LN_P','D_OPT','RV_OPT','ED_OPT','ERV_OPT','X','Y','Z','U','V','W','EX','EY','EZ','EU','EV','EW','XYZ_SEP','UVW_SEP','XYZ_SIG','UVW_SIG','MAHALANOBIS'])
 	
 	#Return the output table
 	return output_structure
