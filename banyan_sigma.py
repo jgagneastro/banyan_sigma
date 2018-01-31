@@ -281,7 +281,7 @@ def banyan_sigma(stars_data=None,column_names=None,hypotheses=None,ln_priors=Non
 		zeros = np.zeros(nobj)
 		data_table = pd.DataFrame({'RA':ra,'DEC':dec,'PMRA':pmra,'PMDEC':pmdec,'EPMRA':epmra,'EPMDEC':epmdec,'PSIRA':zeros,'PSIDEC':zeros,'EPSIRA':zeros,'EPSIDEC':zeros})
 	if ra is None:
-		nobj = np.size(stars_data)
+		nobj = stars_data.shape[0]
 		zeros = np.zeros(nobj)
 		data_table = pd.DataFrame({'RA':stars_data[column_names['RA']],'DEC':stars_data[column_names['DEC']],'PMRA':stars_data[column_names['PMRA']],'PMDEC':stars_data[column_names['PMDEC']],'EPMRA':stars_data[column_names['EPMRA']],'EPMDEC':stars_data[column_names['EPMDEC']],'PSIRA':zeros,'PSIDEC':zeros,'EPSIRA':zeros,'EPSIDEC':zeros})
 	
