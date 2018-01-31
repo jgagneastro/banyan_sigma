@@ -286,15 +286,16 @@ def banyan_sigma(stars_data=None,column_names=None,hypotheses=None,ln_priors=Non
 		data_table = pd.DataFrame({'RA':stars_data[column_names['RA']],'DEC':stars_data[column_names['DEC']],'PMRA':stars_data[column_names['PMRA']],'PMDEC':stars_data[column_names['PMDEC']],'EPMRA':stars_data[column_names['EPMRA']],'EPMDEC':stars_data[column_names['EPMDEC']],'PSIRA':zeros,'PSIDEC':zeros,'EPSIRA':zeros,'EPSIDEC':zeros})
 	
 	#Fill up the data table with stars_data if it is specified
-	for keys in column_names.keys():
-		#Skip special keys
-		if (keys == 'NAME') or (keys == 'PLX') or (keys == 'EPLX'):
-			continue
-		data_table[keys] = stars_data[column_names[keys]]
-	if 'PLX' in column_names.keys():
-		data_table['DIST'] = 1e3/stars_data[column_names['PLX']]
-	if 'PLX' in column_names.keys() and 'EPLX' in column_names.keys():
-		data_table['EDIST'] = 1e3/stars_data[column_names['PLX']]**2*stars_data[column_names['EPLX']]
+	if stars_data is not None:
+		for keys in column_names.keys():
+			#Skip special keys
+			if (keys == 'NAME') or (keys == 'PLX') or (keys == 'EPLX'):
+				continue
+			data_table[keys] = stars_data[column_names[keys]]
+		if 'PLX' in column_names.keys():
+			data_table['DIST'] = 1e3/stars_data[column_names['PLX']]
+		if 'PLX' in column_names.keys() and 'EPLX' in column_names.keys():
+			data_table['EDIST'] = 1e3/stars_data[column_names['PLX']]**2*stars_data[column_names['EPLX']]
 	
 	#Transform parallaxes to distances directly in data_table
 	if 'PLX' in data_table.keys() and 'EPLX' in data_table.keys():

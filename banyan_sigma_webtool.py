@@ -11,6 +11,9 @@ from astropy.table import Table
 def banyan_sigma_wrapper(name=None,ip=None,ra=None,dec=None,pmra=None,pmdec=None,epmra=None,epmdec=None,rv=None,erv=None,plx=None,eplx=None):
 	
 	#Launch the regular banyan_sigma
+	output = banyan_sigma(ra=ra,dec=dec,pmra=pmra,pmdec=pmdec,epmra=epmra,epmdec=epmdec,rv=rv,erv=erv,plx=plx,eplx=eplx)
+	pdb.set_trace()
+	
 	stars_data = pd.DataFrame({'RA':ra,'DEC':dec,'PMRA':pmra,'EPMRA':epmra,'PMDEC':pmdec,'EPMDEC':epmdec,'RV':rv,'ERV':erv,'PLX':plx,'EPLX':eplx},index=[0])
 	use_rv = False
 	use_plx = False
