@@ -18,15 +18,16 @@ def banyan_sigma_wrapper(name=None,ip=None,ra=None,dec=None,pmra=None,pmdec=None
 		use_rv = True
 	if np.isfinite(stars_data['PLX'][0]) and np.isfinite(stars_data['EPLX'][0]):
 		use_plx = True
-	output = banyan_sigma(Table.from_pandas(stars_data),column_names={'RA':'RA','DEC':'DEC','PMRA':'PMRA','EPMRA':'EPMRA','PMDEC':'PMDEC','EPMDEC':'EPMDEC'},use_rv=use_rv,use_plx=use_plx)
+	output = banyan_sigma(Table.from_pandas(stars_data),use_rv=use_rv,use_plx=use_plx)
+	#output = banyan_sigma(Table.from_pandas(stars_data),column_names={'RA':'RA','DEC':'DEC','PMRA':'PMRA','EPMRA':'EPMRA','PMDEC':'PMDEC','EPMDEC':'EPMDEC'},use_rv=use_rv,use_plx=use_plx)
 	
 	#Transform LN_P to 0-1 probabilities
 	probs = np.exp(output['ALL'].values)
 	output['ALL'].loc[0] = probs
+	pdb.set_trace()
 	
 	#Save output probabilities to CSV
 	outdir = '/home/gagne/www/banyansigma/answer/'
-	output['ALL'].values = 
 	output['ALL'].to_csv(outdir+'_prob'+name+'.dat')
 	
 	#Read all most probable RVs
@@ -81,7 +82,7 @@ def name_resolver_webtool(name=None):
 		data['ePMDEC'] = np.nan
 	
 	#TEST
-	out = banyan_sigma_webtool(name=name,ip='1.2.3',ra=data['RADEG'][0],dec=data['DECDEG'][0],pmra=data['PMRA'][0],pmdec=data['PMDEC'][0],epmra=data['ePMRA'][0],epmdec=data['ePMDEC'][0],rv=data['VRAD'][0],erv=data['eVRAD'][0],plx=data['PLX'][0],eplx=data['ePLX'][0])
+	out = banyan_sigma_wrapper(name=name,ip='1.2.3',ra=data['RADEG'][0],dec=data['DECDEG'][0],pmra=data['PMRA'][0],pmdec=data['PMDEC'][0],epmra=data['ePMRA'][0],epmdec=data['ePMDEC'][0],rv=data['VRAD'][0],erv=data['eVRAD'][0],plx=data['PLX'][0],eplx=data['ePLX'][0])
 	pdb.set_trace()
 	
 	#Export to CSV file
