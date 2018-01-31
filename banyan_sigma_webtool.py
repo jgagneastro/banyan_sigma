@@ -11,7 +11,7 @@ from astropy.table import Table
 def banyan_sigma_wrapper(name=None,ip=None,ra=None,dec=None,pmra=None,pmdec=None,epmra=None,epmdec=None,rv=None,erv=None,plx=None,eplx=None):
 	
 	#Launch the regular banyan_sigma
-	stars_data = pd.DataFrame({'RA':ra,'DEC':dec,'PMRA':pmra,'EPMRA':epmra,'PMDEC':pmdec,'EPMDEC':epmdec,'RV':rv,'ERV':erv,'PLX':plx,'EPLX':plx},index=[0])
+	stars_data = pd.DataFrame({'RA':ra,'DEC':dec,'PMRA':pmra,'EPMRA':epmra,'PMDEC':pmdec,'EPMDEC':epmdec,'RV':rv,'ERV':erv,'PLX':plx,'EPLX':eplx},index=[0])
 	use_rv = False
 	use_plx = False
 	if np.isfinite(stars_data['RV'][0]) and np.isfinite(stars_data['ERV'][0]):
