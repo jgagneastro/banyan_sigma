@@ -261,6 +261,8 @@ def banyan_sigma(stars_data=None,column_names=None,hypotheses=None,ln_priors=Non
 	#Merge user-issued column data with the default values (the user-issued values take predominance)
 	if column_names is not None:
 		column_names = {**default_column_names, **column_names}
+	else:
+		column_names = default_column_names
 	
 	#Check if a column named PLX, DIST, RV, PSIRA, etc. exist in stars_data but not in column_names. If this is the case, issue a warning so that the user understands that some data are not being considered.
 	if stars_data is not None:
