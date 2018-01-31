@@ -506,8 +506,8 @@ def banyan_sigma(stars_data=None,column_names=None,hypotheses=None,ln_priors=Non
 		#print("HYP "+str(i))
 		
 		#If constraint_dist_per_hyp is set, determine which distance constraint must be used now
-		dist_for_this_hypothesis = data_table['DIST']
-		edist_for_this_hypothesis = data_table['EDIST']
+		dist_for_this_hypothesis = data_table['DIST'].values
+		edist_for_this_hypothesis = data_table['EDIST'].values
 		if constraint_dist_per_hyp is not None:
 			gdist_per_hyp = np.where(np.isfinite(dist_per_hyp_arr[:,i]))
 			dist_for_this_hypotheses[gdist_per_hyp[0]] = dist_per_hyp[gdist_per_hyp[0],i]
@@ -544,7 +544,7 @@ def banyan_sigma(stars_data=None,column_names=None,hypotheses=None,ln_priors=Non
 				nobj_ci = np.size(data_table_ci)
 				
 				#Solve the BANYAN Sigma integrals for this hypothesis and this batch of targets
-				output_str_ci = banyan_sigma_solve_multivar(data_table_ci['RA'],data_table_ci['DEC'],data_table_ci['PMRA'],data_table_ci['PMDEC'],data_table_ci['EPMRA'],data_table_ci['EPMDEC'],rv_measured=data_table_ci['RV'],rv_error=data_table_ci['ERV'],dist_measured=dist_for_this_hypothesis_ci,dist_error=edist_for_this_hypothesis_ci,psira=data_table_ci['PSIRA'],psidec=data_table_ci['PSIDEC'],psira_error=data_table_ci['EPSIRA'],psidec_error=data_table_ci['EPSIDEC'],precision_matrix=parameters_str_row['PRECISION_MATRIX'],center_vec=parameters_str_row['CENTER_VEC'],precision_matrix_determinant=parameters_str_row['PRECISION_DETERM'])
+				output_str_ci = banyan_sigma_solve_multivar(data_table_ci['RA'].values,data_table_ci['DEC'].values,data_table_ci['PMRA'].values,data_table_ci['PMDEC'].values,data_table_ci['EPMRA'].values,data_table_ci['EPMDEC'].values,rv_measured=data_table_ci['RV'].values,rv_error=data_table_ci['ERV'].values,dist_measured=dist_for_this_hypothesis_ci,dist_error=edist_for_this_hypothesis_ci,psira=data_table_ci['PSIRA'].values,psidec=data_table_ci['PSIDEC'].values,psira_error=data_table_ci['EPSIRA'].values,psidec_error=data_table_ci['EPSIDEC'].values,precision_matrix=parameters_str_row['PRECISION_MATRIX'],center_vec=parameters_str_row['CENTER_VEC'],precision_matrix_determinant=parameters_str_row['PRECISION_DETERM'])
 				
 				#Store the log of probabilities if those are the only required output
 				if lnp_only is True:
