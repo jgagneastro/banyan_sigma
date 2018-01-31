@@ -12,18 +12,6 @@ def banyan_sigma_wrapper(name=None,ip=None,ra=None,dec=None,pmra=None,pmdec=None
 	
 	#Launch the regular banyan_sigma
 	output = banyan_sigma(ra=ra,dec=dec,pmra=pmra,pmdec=pmdec,epmra=epmra,epmdec=epmdec,rv=rv,erv=erv,plx=plx,eplx=eplx)
-	pdb.set_trace()
-	
-	stars_data = pd.DataFrame({'RA':ra,'DEC':dec,'PMRA':pmra,'EPMRA':epmra,'PMDEC':pmdec,'EPMDEC':epmdec,'RV':rv,'ERV':erv,'PLX':plx,'EPLX':eplx},index=[0])
-	use_rv = False
-	use_plx = False
-	if np.isfinite(stars_data['RV'][0]) and np.isfinite(stars_data['ERV'][0]):
-		use_rv = True
-	if np.isfinite(stars_data['PLX'][0]) and np.isfinite(stars_data['EPLX'][0]):
-		use_plx = True
-	use_rv = True
-	output = banyan_sigma(stars_data,use_rv=use_rv,use_plx=use_plx)
-	#output = banyan_sigma(Table.from_pandas(stars_data),column_names={'RA':'RA','DEC':'DEC','PMRA':'PMRA','EPMRA':'EPMRA','PMDEC':'PMDEC','EPMDEC':'EPMDEC'},use_rv=use_rv,use_plx=use_plx)
 	
 	#Transform LN_P to 0-1 probabilities
 	probs = np.exp(output['ALL'].values)
