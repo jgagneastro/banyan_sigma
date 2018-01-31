@@ -743,7 +743,7 @@ def banyan_sigma(stars_data=None,column_names=None,hypotheses=None,ln_priors=Non
 		output_final['NFP','Metrics'] = fpr_weighted*total_besancon_objects
 	
 	#Create a Dataframe with all probabilities
-	probs_frame = pd.DataFrame(norm_output_prior,columns=[np.array(np.tile('All',nhyp)),hypotheses])
+	probs_frame = pd.DataFrame(norm_output_prior,columns=[np.array(np.tile('ALL',nhyp)),hypotheses])
 	
 	#Add the per-group stuff
 	if metrics_computed is True:
@@ -756,23 +756,7 @@ def banyan_sigma(stars_data=None,column_names=None,hypotheses=None,ln_priors=Non
 		output_final.index = data_table['NAME']
 	
 	#Return the final structure
-	stop()
 	return output_final
-	
-	#THIS SHOULD BE THERE IN IDL TOO
-	#Issue an error if some of the column_names entries are not present in stars_data
-	#for key in column_names.keys():
-	#	if column_names[key] not in stars_data.keys():
-	#		raise ValueError('The "'+key+'" keyword is not present in the input data structure')
-
-def view_global(x):
-	#print(x.swaplevel(axis=1)['Global'])
-	print(x.xs('Global',level=1,axis=1))
-
-#def view_metrics(x):
-#	#print(x.swaplevel(axis=1)['Metrics'])
-#	x.xs('Metrics',level=1,axis=1)
-
 	
 def banyan_sigma_solve_multivar(ra,dec,pmra,pmdec,pmra_error,pmdec_error,precision_matrix=None,center_vec=None,rv_measured=None,rv_error=None,dist_measured=None,dist_error=None,psira=None,psidec=None,psira_error=None,psidec_error=None,lnP_only=False,precision_matrix_determinant=None,debug=False):
 	#PROBLEM: PSIRA_ERROR AND PSIDEC_ERROR ARE NOT USED ?
