@@ -70,7 +70,7 @@
           use_plx=True/False, use_psi=True/False)
 
  OPTIONAL INPUTS:
-       stars_data - An structured array that contains at least the following informations:
+       stars_data - A pandas DataFrame that contains at least the following informations:
                     ra, dec, pmra, pmdec, epmra, and epmdec. It can also optionally contain the informations on
                     rv, erv, dist, edist, plx, eplx, psira, psidec, epsira, epsidec. See the corresponding keyword
                     descriptions for more information.
@@ -125,11 +125,11 @@
        ln_priors - An dictionary that contains the natural logarithm of Bayesian priors that should be *multiplied with the
                    default priors* (use unit_priors=True if you want only ln_priors to be considered). The structure must contain the name
                    of each hypothesis as keys, and the associated scalar value of the natural logarithm of the Bayesian prior for each key. 
-       constraint_dist_per_hyp - A structured array that contains a distance constraint (in pc).
+       constraint_dist_per_hyp - A pandas DataFrame that contains a distance constraint (in pc).
                    Each of the Bayesian hypotheses must be included as keys and the distance must be specified as its
                    associated scalar value. constraint_edist_per_hyp must also be specified if constraint_dist_per_hyp is specified.
                    This keyword is useful for including spectro-photometric distance constraints that depend on the age of the young association or field.
-       constraint_edist_per_hyp - A structured array that contains a measurement
+       constraint_edist_per_hyp - A pandas DataFrame that contains a measurement
                    error on the distance constraint (in pc). Each of the Bayesian hypotheses must be included as keys and the
                    distance error must be specified as its associated scalar value.  
 
@@ -145,7 +145,7 @@
        use_psi - Use any psira, psidec values found in the stars_data input structure.
 
  OUTPUT:
-      This routine outputs a structured array, with the following keys:
+      This routine outputs a pandas DataFrame, with the following keys:
       NAME - The name of the object (as taken from the input structure).
       ALL - A structure that contains the Bayesian probability (0 to 1) for each of the associations (as individual keys).
       METRICS - A structure that contains the performance metrics associated with the global Bayesian probability of this target.
@@ -279,12 +279,11 @@ def banyan_sigma(stars_data=None,column_names=None,hypotheses=None,ln_priors=Non
 	if ra is not None:
 		nobj = np.size(ra)
 		zeros = np.zeros(nobj)
-		rows = np.array([ra,dec,pmra,pmdec,epmra,epmdec,zeros,zeros,zeros,zeros])
+		data_table = pd.DataFrame({'RA':ra,'DEC':dec,'PMRA':pmra,'PMDEC':pmdec,'EPMRA':epmra,'EPMDEC':epmdec,'PSIRA':zeros,'PSIDEC':zeros,'EPSIRA':zeros,'EPSIDEC':zeros})
 	if ra is None:
 		nobj = np.size(stars_data)
 		zeros = np.zeros(nobj)
-		rows = np.array([stars_data[column_names['RA']],stars_data[column_names['DEC']],stars_data[column_names['PMRA']],stars_data[column_names['PMDEC']],stars_data[column_names['EPMRA']],stars_data[column_names['EPMDEC']],zeros,zeros,zeros,zeros])
-	data_table = Table(rows=rows.transpose(),names=('RA','DEC','PMRA','PMDEC','EPMRA','EPMDEC','PSIRA','PSIDEC','EPSIRA','EPSIDEC'))
+		data_table = pd.DataFrame({'RA':stars_data[column_names['RA']],'DEC':stars_data[column_names['DEC']],'PMRA':stars_data[column_names['PMRA']],'PMDEC':stars_data[column_names['PMDEC']],'EPMRA':stars_data[column_names['EPMRA']],'EPMDEC':stars_data[column_names['EPMDEC']],'PSIRA':zeros,'PSIDEC':zeros,'EPSIRA':zeros,'EPSIDEC':zeros})
 	
 	#Fill up the data table with stars_data if it is specified
 	for keys in column_names.keys():
@@ -300,10 +299,10 @@ def banyan_sigma(stars_data=None,column_names=None,hypotheses=None,ln_priors=Non
 	#Transform parallaxes to distances directly in data_table
 	if 'PLX' in data_table.keys() and 'EPLX' in data_table.keys():
 		data_table['EDIST'] = 1e3/data_table['PLX']**2*data_table['EPLX']
-		data_table.remove_column('EPLX')
+		data_table = data_table.drop('EPLX', 1)
 	if 'PLX' in data_table.keys():
 		data_table['DIST'] = 1e3/data_table['PLX']
-		data_table.remove_column('PLX')
+		data_table = data_table.drop('PLX', 1)
 	
 	#If measurements are specified as keywords, put them in the data table
 	if ra is not None:
@@ -481,8 +480,8 @@ def banyan_sigma(stars_data=None,column_names=None,hypotheses=None,ln_priors=Non
 	if constraint_dist_per_hyp is not None:
 		both_distances_set = np.where(np.isfinite(data_table['DIST']) & np.isfinite(np.nansum(dist_per_hyp_arr,axis=1)))
 	if np.size(both_distances_set) != 0:
-		xdist_measured = np.tile(data_table['DIST'][both_distances_set[0]],(nhyp,1)).transpose()
-		xedist_measured = np.tile(data_table['EDIST'][both_distances_set[0]],(nhyp,1)).transpose()
+		xdist_measured = np.tile(data_table['DIST'].iloc[both_distances_set[0]],(nhyp,1)).transpose()
+		xedist_measured = np.tile(data_table['EDIST'].iloc[both_distances_set[0]],(nhyp,1)).transpose()
 		ln_prob_dist_differences = -(xdist_measured-dist_per_hyp_arr[both_distances_set[0],:])**2/(2.0*(xedist_measured**2+edist_per_hyp_arr[both_distances_set[0],:]**2))
 		
 		#Treat these values as priors so normalize them with the field hypotheses (because they get applied only on young associations)
@@ -510,9 +509,9 @@ def banyan_sigma(stars_data=None,column_names=None,hypotheses=None,ln_priors=Non
 		dist_for_this_hypothesis = data_table['DIST']
 		edist_for_this_hypothesis = data_table['EDIST']
 		if constraint_dist_per_hyp is not None:
-			gdist_per_hyp = np.where(np.isfinite(constraint_dist_per_hyp[:,i]))
-			dist_for_this_hypotheses[gdist_per_hyp[0]] = constraint_dist_per_hyp[gdist_per_hyp[0],i]
-			edist_for_this_hypotheses[gdist_per_hyp[0]] = constraint_edist_per_hyp[gdist_per_hyp[0],i]
+			gdist_per_hyp = np.where(np.isfinite(dist_per_hyp_arr[:,i]))
+			dist_for_this_hypotheses[gdist_per_hyp[0]] = dist_per_hyp[gdist_per_hyp[0],i]
+			edist_for_this_hypotheses[gdist_per_hyp[0]] = edist_per_hyp_arr[gdist_per_hyp[0],i]
 		
 		#Loop over individual multivariate Gaussians if the model is a mixture
 		ngauss = np.size(parameters_str.loc[hypotheses[i]])
@@ -545,7 +544,7 @@ def banyan_sigma(stars_data=None,column_names=None,hypotheses=None,ln_priors=Non
 				nobj_ci = np.size(data_table_ci)
 				
 				#Solve the BANYAN Sigma integrals for this hypothesis and this batch of targets
-				output_str_ci = banyan_sigma_solve_multivar(data_table_ci['RA'],data_table_ci['DEC'],data_table_ci['PMRA'],data_table_ci['PMDEC'],data_table_ci['EPMRA'],data_table_ci['EPMDEC'],rv_measured=data_table_ci['RV'],rv_error=data_table_ci['ERV'],dist_measured=dist_for_this_hypothesis_ci,dist_error=edist_for_this_hypothesis_ci,psira=data_table_ci['PSIRA'],psidec=data_table_ci['PSIDEC'],psira_error=data_table_ci['EPSIRA'],psidec_error=data_table_ci['EPSIDEC'],precision_matrix=parameters_str_row['PRECISION_MATRIX'],center_vec=parameters_str_row['CENTER_VEC'],precision_matrix_determinant=parameters_str_row['PRECISION_DETERM'],debug=(i==4 and ci==19))
+				output_str_ci = banyan_sigma_solve_multivar(data_table_ci['RA'],data_table_ci['DEC'],data_table_ci['PMRA'],data_table_ci['PMDEC'],data_table_ci['EPMRA'],data_table_ci['EPMDEC'],rv_measured=data_table_ci['RV'],rv_error=data_table_ci['ERV'],dist_measured=dist_for_this_hypothesis_ci,dist_error=edist_for_this_hypothesis_ci,psira=data_table_ci['PSIRA'],psidec=data_table_ci['PSIDEC'],psira_error=data_table_ci['EPSIRA'],psidec_error=data_table_ci['EPSIDEC'],precision_matrix=parameters_str_row['PRECISION_MATRIX'],center_vec=parameters_str_row['CENTER_VEC'],precision_matrix_determinant=parameters_str_row['PRECISION_DETERM'])
 				
 				#Store the log of probabilities if those are the only required output
 				if lnp_only is True:
@@ -899,8 +898,6 @@ def banyan_sigma_solve_multivar(ra,dec,pmra,pmdec,pmra_error,pmdec_error,precisi
 	
 	#Calculate optimal distance and radial velocity
 	beta = (GAMMA_GAMMA - OMEGA_GAMMA**2/OMEGA_OMEGA)/2.0
-	if ~np.isfinite(min(beta)):
-		pdb.set_trace()
 	if np.nanmin(beta) < 0:
 		raise ValueError('beta has an ill-defined value !')
 	gamma = OMEGA_GAMMA*OMEGA_TAU/OMEGA_OMEGA - GAMMA_TAU
