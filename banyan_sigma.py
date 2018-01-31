@@ -234,6 +234,16 @@ cos_dec_pol = np.cos(np.radians(dec_pol))
 #Main BANYAN_SIGMA routine
 def banyan_sigma(stars_data=None,column_names=None,hypotheses=None,ln_priors=None,ntargets_max=1e7,ra=None,dec=None,pmra=None,pmdec=None,epmra=None,epmdec=None,dist=None,edist=None,rv=None,erv=None,psira=None,psidec=None,epsira=None,epsidec=None,plx=None,eplx=None,constraint_dist_per_hyp=None,constraint_edist_per_hyp=None,unit_priors=False,lnp_only=False,no_xyz=False,use_rv=None,use_dist=None,use_plx=None,use_psi=None):
 	
+	#Automatically detect Astropy Tables and transform them to pandas dataframes
+	if stars_data is not None:
+		if isinstance(stars_data,Table):
+			#First remove multi-dimensional columns to avoid crash
+			for keys in stars_data.keys():
+				if stars_data[keys].ndim != 1:
+					stars_data.remove_column(keys)
+			#Now transform to pandas dataframe
+			stars_data = stars_data.to_pandas()
+	
 	#Check input consistency
 	if stars_data is None and (ra is None or dec is None or pmra is None or pmdec is None or epmra is None or epmdec is None):
 		raise ValueError('Either an input structure (stars_data) or all of the ra,dec,pmra,pmdec,epmra and epmdec keywords must be specified !')
