@@ -18,7 +18,8 @@ def banyan_sigma_wrapper(name=None,ip=None,ra=None,dec=None,pmra=None,pmdec=None
 		use_rv = True
 	if np.isfinite(stars_data['PLX'][0]) and np.isfinite(stars_data['EPLX'][0]):
 		use_plx = True
-	output = banyan_sigma(Table.from_pandas(stars_data),use_rv=use_rv,use_plx=use_plx)
+	use_rv = True
+	output = banyan_sigma(stars_data,use_rv=use_rv,use_plx=use_plx)
 	#output = banyan_sigma(Table.from_pandas(stars_data),column_names={'RA':'RA','DEC':'DEC','PMRA':'PMRA','EPMRA':'EPMRA','PMDEC':'PMDEC','EPMDEC':'EPMDEC'},use_rv=use_rv,use_plx=use_plx)
 	
 	#Transform LN_P to 0-1 probabilities
@@ -81,7 +82,6 @@ def name_resolver_webtool(name=None):
 		data['PMDEC'] = np.nan
 		data['ePMDEC'] = np.nan
 	
-	#TEST
 	out = banyan_sigma_wrapper(name=name,ip='1.2.3',ra=data['RADEG'][0],dec=data['DECDEG'][0],pmra=data['PMRA'][0],pmdec=data['PMDEC'][0],epmra=data['ePMRA'][0],epmdec=data['ePMDEC'][0],rv=data['VRAD'][0],erv=data['eVRAD'][0],plx=data['PLX'][0],eplx=data['ePLX'][0])
 	pdb.set_trace()
 	
