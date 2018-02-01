@@ -72,15 +72,13 @@ OUTPUT_STRUCTURE = BANYAN_SIGMA(stars_data=None, column_names=None, hypotheses=N
        hypotheses: The list of Bayesian hypotheses to be considered. They must all be present in the parameters fits file (See REQUIREMENTS #1 above).
        ln_priors: An dictionary that contains the natural logarithm of Bayesian priors that should be *multiplied with the default priors* (use unit_priors=True if you want only ln_priors to be considered). The structure must contain the name of each hypothesis as keys, and the associated scalar value of the natural logarithm of the Bayesian prior for each key. 
        constraint_dist_per_hyp: A structured array that contains a distance constraint (in pc). Each of the Bayesian hypotheses must be included as keys and the distance must be specified as its associated scalar value. constraint_edist_per_hyp must also be specified if constraint_dist_per_hyp is specified. This keyword is useful for including spectro-photometric distance constraints that depend on the age of the young association or field.
-       constraint_edist_per_hyp: A structured array that contains a measurement error on the distance constraint (in pc). Each of the Bayesian hypotheses must be included as keys and the distance error must be specified as its associated scalar value.
+       constraint_edist_per_hyp: A structured array that contains a measurement error on the distance constraint (in pc). Each of the Bayesian hypotheses must be included as keys and the distance error must be specified as its associated scalar value.
 
 ## OPTIONAL INPUT KEYWORDS:
 
        unit_priors: If this keyword is set, all default priors are set to 1 (but they are still overrided by manual priors input with the keyword ln_priors).
        lnp_only: If this keyword is set, only Bayesian probabilities will be calculated and returned.
-       no_xyz: If this keyword is set, the width of the spatial components of the multivariate Gaussian will be widened by a large
-                 factor, so that the XYZ components are effectively ignored. This keyword must be used with extreme caution as it will
-                 generate a significant number of false-positives and confusion between the young associations.
+       no_xyz: If this keyword is set, the width of the spatial components of the multivariate Gaussian will be widened by a large factor, so that the XYZ components are effectively ignored. This keyword must be used with extreme caution as it will generate a significant number of false-positives and confusion between the young associations.
        use_rv: Use any radial velocity values found in the stars_data input structure.
        use_dist: Use any distance values found in the stars_data input structure.
        use_plx: Use any parallax values found in the stars_data input structure.
@@ -103,21 +101,21 @@ This routine outputs a structured array, with the following keys:
 
 These per-association sub-structures contain the following keys:
 
-        HYPOTHESIS: Name of the association.
-        LN_P: Natural logarithm of the Bayesian probability (LN of 0 to 1).
-        D_OPT: Optimal distance (pc) that maximizes the Bayesian likelihood for this hypothesis.
-        RV_OPT: Optimal radial velocity (km/s) that maximizes the Bayesian likelihood for this hypothesis.
-        ED_OPT: Error on the optimal distance (pc), which approximates the 68% width of how the likelihood varies with distance.
-        ERV_OPT: Error on the optimal radial velocity (km/s), which approximates the 68% width of how the likelihood varies with radial velocity.
-        XYZUVW: 6-dimensional array containing the XYZ and UVW position of the star at the measured radial velocity and/or distance, or the optimal radial velocity and/or distance when the first are not available (units of pc and km/s).
-        EXYZUVW: Errors on XYZUVW (units of pc and km/s).
-        XYZ_SEP: Separation between the optimal or measured XYZ position of the star and the center of the multivariate Gaussian model of this Bayesian hypothesis (pc).
-        UVW_SEP: Separation between the optimal or measured UVW position of the star and the center of the multivariate Gaussian model of this Bayesian hypothesis (km/s).
-        XYZ_SEP: N-sigma separation between the optimal or measured XYZ position of the star and the multivariate Gaussian model of this Bayesian hypothesis (no units).
-        UVW_SEP: N-sigma separation between the optimal or measured UVW position of the star and the multivariate Gaussian model of this Bayesian hypothesis (no units).
-        MAHALANOBIS: Mahalanobis distance between the optimal or measured XYZUVW position of the star and the multivariate Gaussian model. A Mahalanobis distance is a generalization of a 6D N-sigma distance that accounts for covariances. 
-      BESTYA_STR: A sub-structure similar to those described above for the most probable young association (ignoring the field possibility).
-      YA_PROB: The Bayesian probability (0 to 1) that this object belongs to any young association (i.e., excluding the field).
-      LIST_PROB_YAS: A list of young associations with at least 5% Bayesian probability. Their relative probabilities (%) are specified between parentheses.
-      BEST_HYP: Most probable Bayesian hypothesis (including the field)
-      BEST_YA: Most probable single young association.
+       HYPOTHESIS: Name of the association.
+       LN_P: Natural logarithm of the Bayesian probability (LN of 0 to 1).
+       D_OPT: Optimal distance (pc) that maximizes the Bayesian likelihood for this hypothesis.
+       RV_OPT: Optimal radial velocity (km/s) that maximizes the Bayesian likelihood for this hypothesis.
+       ED_OPT: Error on the optimal distance (pc), which approximates the 68% width of how the likelihood varies with distance.
+       ERV_OPT: Error on the optimal radial velocity (km/s), which approximates the 68% width of how the likelihood varies with radial velocity.
+       XYZUVW: 6-dimensional array containing the XYZ and UVW position of the star at the measured radial velocity and/or distance, or the optimal radial velocity and/or distance when the first are not available (units of pc and km/s).
+       EXYZUVW: Errors on XYZUVW (units of pc and km/s).
+       XYZ_SEP: Separation between the optimal or measured XYZ position of the star and the center of the multivariate Gaussian model of this Bayesian hypothesis (pc).
+       UVW_SEP: Separation between the optimal or measured UVW position of the star and the center of the multivariate Gaussian model of this Bayesian hypothesis (km/s).
+       XYZ_SEP: N-sigma separation between the optimal or measured XYZ position of the star and the multivariate Gaussian model of this Bayesian hypothesis (no units).
+       UVW_SEP: N-sigma separation between the optimal or measured UVW position of the star and the multivariate Gaussian model of this Bayesian hypothesis (no units).
+       MAHALANOBIS: Mahalanobis distance between the optimal or measured XYZUVW position of the star and the multivariate Gaussian model. A Mahalanobis distance is a generalization of a 6D N-sigma distance that accounts for covariances. 
+       BESTYA_STR: A sub-structure similar to those described above for the most probable young association (ignoring the field possibility).
+       YA_PROB: The Bayesian probability (0 to 1) that this object belongs to any young association (i.e., excluding the field).
+       LIST_PROB_YAS: A list of young associations with at least 5% Bayesian probability. Their relative probabilities (%) are specified between parentheses.
+       BEST_HYP: Most probable Bayesian hypothesis (including the field)
+       BEST_YA: Most probable single young association.
