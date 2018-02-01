@@ -40,9 +40,10 @@ def name_resolver_webtool(name=None):
 		data['PMDEC'] = np.nan
 		data['ePMDEC'] = np.nan
 	
-	out = banyan_sigma_wrapper(name=name,ip='1.2.3',ra=data['RADEG'][0],dec=data['DECDEG'][0],pmra=data['PMRA'][0],pmdec=data['PMDEC'][0],epmra=data['ePMRA'][0],epmdec=data['ePMDEC'][0],rv=data['VRAD'][0],erv=data['eVRAD'][0],plx=data['PLX'][0],eplx=data['ePLX'][0])
-	pdb.set_trace()
+	#out = banyan_sigma_wrapper(name=name,ip='1.2.3',ra=data['RADEG'][0],dec=data['DECDEG'][0],pmra=data['PMRA'][0],pmdec=data['PMDEC'][0],epmra=data['ePMRA'][0],epmdec=data['ePMDEC'][0],rv=data['VRAD'][0],erv=data['eVRAD'][0],plx=data['PLX'][0],eplx=data['ePLX'][0])
+	#pdb.set_trace()
 	
 	#Export to CSV file
 	outfile = '/home/gagne/www/banyansigma/answer/info_'+name+'.dat'
 	data[['Name','RADEG','DECDEG','PMRA','ePMRA','PMDEC','ePMDEC','REFPM','VRAD','eVRAD','PLX','ePLX']].to_csv(outfile,index=False)
+	pdb.set_trace()
