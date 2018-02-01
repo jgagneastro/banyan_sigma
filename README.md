@@ -13,7 +13,6 @@ Please see Gagné et al. 2018 (accepted for publication in ApJS, http://adsabs.h
 An online version of this tool is available for 1-object queries at http://www.astro.umontreal.ca/~gagne/banyansigma.php.
        
 ## REQUIREMENTS:
-
 (1) A fits file containing the parameters of the multivariate Gaussian models of each Bayesian hypothesis must be included at /data/banyan_sigma_parameters.fits in the directory where BANYAN_SIGMA() is compiled. The file provided with this release corresponds to the set of 27 young associations described in Gagné et al. (2018). The fits file can be written with the IDL MWRFITS.PRO function from an IDL array of structures of N elements, where N is the total number of multivariate Gaussians used in the models of all Bayesian hypotheses. Each element of this structure contains the following information:
 
        NAME: The name of the model (scalar string).
@@ -23,7 +22,7 @@ An online version of this tool is available for 1-object queries at http://www.a
        LN_NOBJ: (Optional) Natural logarithm of the number of objects used to build the synthetic model (scalar). This is not used in banyan_sigma().
        COVARIANCE_DETERM: (Optional) Determinant of the covariance matrix, to avoid re-calculating it many times (scalar).
        PRECISION_DETERM: (Optional) Determinant of the precision matrix, to avoid re-calculating it many times (scalar).
-       LN_ALPHA_K: (Optional) Natural logarithm of the alpha_k inflation factors that ensured a fixed rate of true positives at a given Bayesian probability treshold. See Gagné et al. 2017 (ApJ, XX, XX) for more detail (scalar or 4-elements vector). This is not used in BANYAN_SIGMA.
+       LN_ALPHA_K: (Optional) Natural logarithm of the alpha_k inflation factors that ensured a fixed rate of true positives at a given Bayesian probability treshold. See Gagné et al. (2018) for more detail (scalar or 4-elements vector). This is not used in BANYAN_SIGMA.
        LN_PRIOR: Natural logarithm of the Bayesian prior (scalar of 4-elements vector). When this is a 4-elements vector, the cases with only proper motion, proper motion + radial velocity, proper motion + distance or proper motion + radial velocity + distance will be used with the corresponding element of the LN_PRIOR vector.
        LN_PRIOR_OBSERVABLES: Scalar string or 4-elements vector describing the observing modes used for each element of ln_prior. This is not used in banyan_sigma().
        COEFFICIENT: Coefficient (or weight) for multivariate Gaussian mixture models. This will only be used if more than one element of the parameters array have the same model name (see below).  
@@ -37,7 +36,9 @@ In Python, this fits file is read with the Astropy.Tables routine because it req
        TPR: Nx4-elements array containing the rate of true positives that correspond to each of the Bayesian probability (lower) tresholds stored in PROBS.
        FPR: Nx4-elements array containing the rate  of false positives that correspond to each of the Bayesian probability (lower) tresholds stored in PROBS.
        PPV: Nx4-elements array containing the Positive Predictive Values that correspond to each of the Bayesian probability (lower) tresholds stored in PROBS.
-       NFP: Number of expected false positives (FPR times the ~7 million stars in the Besancon simulation of the Solar neighborhood) Each component of the 4-elements dimension of TPR, FPR and PPV corresponds to a different mode of input data, see the description of "LN_PRIOR" above for more detail.
+       NFP: Number of expected false positives (FPR times the ~7 million stars in the Besancon simulation of the Solar neighborhood) 
+       
+Each component of the 4-elements dimension of TPR, FPR and PPV corresponds to a different mode of input data, see the description of "LN_PRIOR" above for more detail.
 
 When this fits file is used, the Bayesian probabilities of each star will be associated with a TPR, FPR, NFP and PPV values in the METRICS sub-structure of the output structure.
            
@@ -69,7 +70,7 @@ OUTPUT_STRUCTURE = BANYAN_SIGMA(stars_data=None, column_names=None, hypotheses=N
        psidec: Parallax motion factor psidec described in Gagné et al. (ApJS, 2017, XX, XX), in units of 1/yr. A N-elements array must be used if N stars are analyzed at once.
        epsira: Measurement error on the parallax motion factor psira described in Gagné et al. (ApJS, 2017, XX, XX), in units of 1/yr. A N-elements array must be used if N stars are analyzed at once.
        epsidec: Measurement error on the parallax motion factor psidec described in Gagné et al. (ApJS, 2017, XX, XX), in units of 1/yr. A N-elements array must be used if N stars are analyzed at once.
-       ntargets_max: (default 10^6). Maximum number of objects to run at once in BANYAN_SIGMA to avoid saturating the RAM. If more targets are supplied, banyan_sigma() is run over a loop of several batches of ntargets_max objects. 
+       ntargets_max: (default 10^6). Maximum number of objects to run at once in BANYAN_SIGMA to avoid saturating the RAM. If more targets are supplied, banyan_sigma() runs over a loop of several batches of ntargets_max objects.
        hypotheses: The list of Bayesian hypotheses to be considered. They must all be present in the parameters fits file (See REQUIREMENTS #1 above).
        ln_priors: An dictionary that contains the natural logarithm of Bayesian priors that should be *multiplied with the default priors* (use unit_priors=True if you want only ln_priors to be considered). The structure must contain the name of each hypothesis as keys, and the associated scalar value of the natural logarithm of the Bayesian prior for each key. 
        constraint_dist_per_hyp: A structured array that contains a distance constraint (in pc). Each of the Bayesian hypotheses must be included as keys and the distance must be specified as its associated scalar value. constraint_edist_per_hyp must also be specified if constraint_dist_per_hyp is specified. This keyword is useful for including spectro-photometric distance constraints that depend on the age of the young association or field.
@@ -95,6 +96,11 @@ This routine outputs a structured array, with the following keys:
               TPR: Rate of true positives expected in a sample of objects that have a Bayesian membership probability at least as large as that of the target.
               FPR: Rate of false positives (from the field) expected in a sample of objects that have a Bayesian membership probability at least as large as that of the target.
               PPV: Positive Predictive Value (sample contamination) expected in a sample of objects that have a Bayesian membership probability at least as large as that of the target.
+       BESTYA_STR: A sub-structure similar to those described above for the most probable young association (ignoring the field possibility).
+       YA_PROB: The Bayesian probability (0 to 1) that this object belongs to any young association (i.e., excluding the field).
+       LIST_PROB_YAS: A list of young associations with at least 5% Bayesian probability. Their relative probabilities (%) are specified between parentheses.
+       BEST_HYP: Most probable Bayesian hypothesis (including the field)
+       BEST_YA: Most probable single young association.
        [ASSOCIATION_1]: Sub-structure containing the relevant details for assiciation [ASSOCIATION_1].
        [ASSOCIATION_2]: (...)
        (...)
@@ -115,8 +121,3 @@ These per-association sub-structures contain the following keys:
        XYZ_SEP: N-sigma separation between the optimal or measured XYZ position of the star and the multivariate Gaussian model of this Bayesian hypothesis (no units).
        UVW_SEP: N-sigma separation between the optimal or measured UVW position of the star and the multivariate Gaussian model of this Bayesian hypothesis (no units).
        MAHALANOBIS: Mahalanobis distance between the optimal or measured XYZUVW position of the star and the multivariate Gaussian model. A Mahalanobis distance is a generalization of a 6D N-sigma distance that accounts for covariances. 
-       BESTYA_STR: A sub-structure similar to those described above for the most probable young association (ignoring the field possibility).
-       YA_PROB: The Bayesian probability (0 to 1) that this object belongs to any young association (i.e., excluding the field).
-       LIST_PROB_YAS: A list of young associations with at least 5% Bayesian probability. Their relative probabilities (%) are specified between parentheses.
-       BEST_HYP: Most probable Bayesian hypothesis (including the field)
-       BEST_YA: Most probable single young association.
