@@ -3,6 +3,7 @@ A Bayesian classifier to identify members of the 27 nearest young associations w
 
 This is the Python version of BANYAN Σ.
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1163795.svg)](https://doi.org/10.5281/zenodo.1163795)
 
 ## PURPOSE:
 Calculate the membership probability that a given astrophysical object belongs to one of the currently known 27 young associations within 150 pc of the Sun, using Bayesian inference. This tool uses the sky position and proper motion measurements of an object, with optional radial velocity (RV) and distance (D) measurements, to derive a Bayesian membership probability. By default, the priors are adjusted such that a probability treshold of 90% will recover 50%, 68%, 82% or 90% of true association members depending on what observables are input (only sky position and proper motion, with RV, with D, with both RV and D, respectively).
