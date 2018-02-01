@@ -1,7 +1,7 @@
 # Banyan Σ
 A Bayesian classifier to identify members of the 27 nearest young associations within 150 pc of the Sun.
 
-This is the Python version of BANYAN Σ.
+This is the Python version of BANYAN Σ. The IDL version can be found at https://github.com/jgagneastro/banyan_sigma_idl
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1163795.svg)](https://doi.org/10.5281/zenodo.1163795)
 
