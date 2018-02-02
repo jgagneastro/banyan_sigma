@@ -10,7 +10,7 @@ Calculate the membership probability that a given astrophysical object belongs t
        
 Please see Gagné et al. 2018 (accepted for publication in ApJS, http://adsabs.harvard.edu/abs/2018arXiv180109051G) for more detail.
        
-An online version of this tool is available for 1-object queries at http://www.astro.umontreal.ca/~gagne/banyansigma.php.
+An online version of this tool is available for 1-object queries at http://www.exoplanetes.umontreal.ca/banyan/banyansigma.php.
        
 ## REQUIREMENTS:
 (1) A fits file containing the parameters of the multivariate Gaussian models of each Bayesian hypothesis must be included at /data/banyan_sigma_parameters.fits in the directory where BANYAN_SIGMA() is compiled. The file provided with this release corresponds to the set of 27 young associations described in Gagné et al. (2018). The fits file can be written with the IDL MWRFITS.PRO function from an IDL array of structures of N elements, where N is the total number of multivariate Gaussians used in the models of all Bayesian hypotheses. Each element of this structure contains the following information:
