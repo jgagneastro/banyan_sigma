@@ -44,6 +44,5 @@ def name_resolver_webtool(name=None):
 	#pdb.set_trace()
 	
 	#Export to CSV file
-	outfile = '/home/gagne/www/banyansigma/answer/info_'+name+'.dat'
+	outfile = '/home/ipm/banyan/banyansigma/answer/info_'+name+'.dat'
 	data[['Name','RADEG','DECDEG','PMRA','ePMRA','PMDEC','ePMDEC','REFPM','VRAD','eVRAD','PLX','ePLX']].to_csv(outfile,index=False)
-	pdb.set_trace()
