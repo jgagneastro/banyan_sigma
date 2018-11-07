@@ -1,9 +1,9 @@
-# Banyan Σ (Python)
+# Banyan Σ (Python 3)
 A Bayesian classifier to identify members of the 27 nearest young associations within 150 pc of the Sun.
 
 This is the Python version of BANYAN Σ. The IDL version can be found at https://github.com/jgagneastro/banyan_sigma_idl
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1163795.svg)](https://doi.org/10.5281/zenodo.1163795)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1165085.svg)](https://doi.org/10.5281/zenodo.1165085)
 
 ## PURPOSE:
 Calculate the membership probability that a given astrophysical object belongs to one of the currently known 27 young associations within 150 pc of the Sun, using Bayesian inference. This tool uses the sky position and proper motion measurements of an object, with optional radial velocity (RV) and distance (D) measurements, to derive a Bayesian membership probability. By default, the priors are adjusted such that a probability treshold of 90% will recover 50%, 68%, 82% or 90% of true association members depending on what observables are input (only sky position and proper motion, with RV, with D, with both RV and D, respectively).
@@ -13,7 +13,9 @@ Please see Gagné et al. 2018 (accepted for publication in ApJS, http://adsabs.h
 An online version of this tool is available for 1-object queries at http://www.exoplanetes.umontreal.ca/banyan/banyansigma.php.
        
 ## REQUIREMENTS:
-(1) A fits file containing the parameters of the multivariate Gaussian models of each Bayesian hypothesis must be included at /data/banyan_sigma_parameters.fits in the directory where BANYAN_SIGMA() is compiled. The file provided with this release corresponds to the set of 27 young associations described in Gagné et al. (2018). The fits file can be written with the IDL MWRFITS.PRO function from an IDL array of structures of N elements, where N is the total number of multivariate Gaussians used in the models of all Bayesian hypotheses. Each element of this structure contains the following information:
+(1) This code requires Python 3 to run properly.
+
+(2) A fits file containing the parameters of the multivariate Gaussian models of each Bayesian hypothesis must be included at /data/banyan_sigma_parameters.fits in the directory where BANYAN_SIGMA() is compiled. The file provided with this release corresponds to the set of 27 young associations described in Gagné et al. (2018). The fits file can be written with the IDL MWRFITS.PRO function from an IDL array of structures of N elements, where N is the total number of multivariate Gaussians used in the models of all Bayesian hypotheses. Each element of this structure contains the following information:
 
        NAME: The name of the model (scalar string).
        CENTER_VEC: Central XYZUVW position of the model (6D vector, in units of pc and km/s).
@@ -29,7 +31,7 @@ An online version of this tool is available for 1-object queries at http://www.e
            
 In Python, this fits file is read with the Astropy.Tables routine because it requires multi-dimensional columns. When more than one elements have the same model name, BANYAN_SIGMA will use the COEFFICIENTs to merge its Bayesian probability, therefore representing the hypothesis with a multivariate Gaussian model mixture. This is how the Galactic field is represented in Gagné et al. (2018).
 
-(2) (Optional) A fits file containing the various performance metrics (true positive rate, false positive rate, positive predictive value) as a function of the Bayesian probability treshold, for each young association. Each element of this structure contains the following information:
+(3) (Optional) A fits file containing the various performance metrics (true positive rate, false positive rate, positive predictive value) as a function of the Bayesian probability treshold, for each young association. Each element of this structure contains the following information:
 
        NAME: The name of the model (scalar string).
        PROBS: N-elements array containing a list of Bayesian probabilities (%).
