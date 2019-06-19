@@ -213,8 +213,9 @@ def banyan_sigma(stars_data=None,column_names=None,hypotheses=None,ln_priors=Non
 	npar = np.size(parameters_str)
 	
 	#Build a unique list of Bayesian hypotheses
+	#Needed to add .astype(str) to avoid TypeError produced after upgrading numpy
 	if hypotheses is None:
-		hypotheses = np.array(parameters_str['NAME'])
+		hypotheses = np.array(parameters_str['NAME']).astype(str)
 		indexes = np.unique(hypotheses,return_index=True)[1]
 		hypotheses = hypotheses[sorted(indexes)]
 	
