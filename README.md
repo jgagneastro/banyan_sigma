@@ -126,3 +126,4 @@ These per-association sub-structures contain the following keys:
 
 ### KNOWN BUGS
 * Crashes when no metrics.fits file is provided, but that file should be optional.
+* NO_XYZ has not been implemented yet.

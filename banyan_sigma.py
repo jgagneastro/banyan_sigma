@@ -11,7 +11,7 @@ from astropy.table import Table #Reading astro-formatted tables
 import warnings #Raise user-defined Python warnings
 import pdb #Debugging
 from scipy.stats import describe #Useful for debugging
-from scipy.misc import logsumexp #Useful to sum logarithms in a numerically stable way
+from scipy.special import logsumexp #Useful to sum logarithms in a numerically stable way
 
 #A more user-friendly way to set break points
 stop = pdb.set_trace
@@ -23,8 +23,9 @@ tiny_number = 1e-318
 total_besancon_objects = 7152397.0
 
 #Initiate some global constants
-kappa = 0.004743717361 #1 AU/yr to km/s divided by 1000.
-#For some reason "from astropy import units as u; kappa=u.au.to(u.km)/u.year.to(u.s)" is far less precise
+#1 AU/yr to km/s divided by 1000
+kappa = 0.004743717361
+#Not using "from astropy import units as u; kappa=u.au.to(u.km)/u.year.to(u.s)" because astropy defines one year as exactly 365.25 days instead of 365 days
 
 #J2000.0 Equatorial position of the Galactic North (b=90 degrees) from Carrol and Ostlie
 ra_pol = 192.8595
@@ -208,6 +209,7 @@ def banyan_sigma(stars_data=None,column_names=None,hypotheses=None,ln_priors=Non
 	parameters_str = Table.read(parameters_file,format='fits')
 	#Remove white spaces in names
 	parameters_str['NAME'] = np.chararray.strip(np.array(parameters_str['NAME']))
+
 	#Index the table by hypothesis name
 	parameters_str.add_index('NAME')
 	npar = np.size(parameters_str)
@@ -219,7 +221,8 @@ def banyan_sigma(stars_data=None,column_names=None,hypotheses=None,ln_priors=Non
 		hypotheses = hypotheses[sorted(indexes)]
 	
 	#Make sure that hypotheses are all upper case
-	hypotheses = np.array([hyp.upper() for hyp in hypotheses.tolist()])
+	#Also make sure that all hypotheses are not in bytes format
+	hypotheses = np.array([hyp.upper().decode('UTF-8') for hyp in hypotheses.tolist()])
 	nhyp = hypotheses.size
 	
 	#If constraint_dist_per_hyp is set, check that all hypotheses are included
@@ -408,8 +411,9 @@ def banyan_sigma(stars_data=None,column_names=None,hypotheses=None,ln_priors=Non
 			
 			#Combine each column of the dataframe with a weighted average
 			output_str = pd.DataFrame()
+			#Had to add a .values here
 			for coli in output_str_multimodel.columns.get_level_values(0):
-				output_str[coli] = logsumexp(logweights_2d+output_str_multimodel[coli],axis=1)
+				output_str[coli] = logsumexp(logweights_2d+output_str_multimodel[coli].values,axis=1)
 	
 		#Use column multi-indexing to add a second title to the columns, which corresponds to the name of the Bayesian hypothesis
 		dataframe_column_names = output_str.columns
@@ -895,8 +899,7 @@ def equatorial_galactic(ra,dec):
 	if np.size(dec) != num_stars:
 		raise ValueError('The dimensions ra and dec do not agree. They must all be numpy arrays of the same length.')
 	
-	
-	#ra_pol,dec_pol,l_north,sin_dec_pol,cos_dec_pol
+	#Compute intermediate quantities
 	ra_m_ra_pol = ra - ra_pol
 	sin_ra = np.sin(np.radians(ra_m_ra_pol))
 	cos_ra = np.cos(np.radians(ra_m_ra_pol))
@@ -912,8 +915,9 @@ def equatorial_galactic(ra,dec):
 	x2 = (sin_dec - sin_dec_pol*gamma)/cos_dec_pol
 	gl = l_north - np.degrees(np.arctan2(x1,x2))
 	gl = (gl+360.)%(360.)
+	#gl = np.mod(gl,360.0) might be better
 	
-	#Return galactic coordinates tuple
+	#Return Galactic coordinates tuple
 	return (gl, gb)
 	
 def matrix_set_product_A_single(A,B):
