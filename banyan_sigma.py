@@ -44,7 +44,7 @@ sin_dec_pol = np.sin(np.radians(dec_pol))
 cos_dec_pol = np.cos(np.radians(dec_pol))
 
 #Main BANYAN_SIGMA routine
-def banyan_sigma(stars_data=None,column_names=None,hypotheses=None,ln_priors=None,ntargets_max=1e7,ra=None,dec=None,pmra=None,pmdec=None,epmra=None,epmdec=None,dist=None,edist=None,rv=None,erv=None,psira=None,psidec=None,epsira=None,epsidec=None,plx=None,eplx=None,constraint_dist_per_hyp=None,constraint_edist_per_hyp=None,unit_priors=False,lnp_only=False,no_xyz=False,use_rv=None,use_dist=None,use_plx=None,use_psi=None):
+def banyan_sigma(stars_data=None,column_names=None,hypotheses=None,ln_priors=None,ntargets_max=1e7,ra=None,dec=None,pmra=None,pmdec=None,epmra=None,epmdec=None,dist=None,edist=None,rv=None,erv=None,psira=None,psidec=None,epsira=None,epsidec=None,plx=None,eplx=None,constraint_dist_per_hyp=None,constraint_edist_per_hyp=None,unit_priors=False,lnp_only=False,no_xyz=False,use_rv=None,use_dist=None,use_plx=None,use_psi=None,custom_models=None):
 	
 	#Automatically detect Astropy Tables and transform them to pandas dataframes
 	if stars_data is not None:
@@ -198,15 +198,19 @@ def banyan_sigma(stars_data=None,column_names=None,hypotheses=None,ln_priors=Non
 	if 'EDIST' not in data_table.keys():
 		data_table['EDIST'] = np.nan
 	
-	#Data file containing the parameters of Bayesian hypotheses
-	parameters_file = os.path.dirname(__file__)+os.sep+'data'+os.sep+'banyan_sigma_parameters.fits'
+	if custom_models is not None:
+		parameters_str = custom_models
+	else:
+		#Data file containing the parameters of Bayesian hypotheses
+		parameters_file = os.path.dirname(__file__)+os.sep+'data'+os.sep+'banyan_sigma_parameters.fits'
+		
+		#Check if the file exists
+		if not os.path.isfile(parameters_file):
+			raise ValueError('The multivariate Gaussian parameters file could not be found ! Please make sure that you did not move "'+os.sep+'data'+os.sep+'banyan_sigma_parameters.fits" from the same path as the Python file banyan_sigma.py !')
+		
+		#Read the parameters of Bayesian hypotheses
+		parameters_str = Table.read(parameters_file,format='fits')
 	
-	#Check if the file exists
-	if not os.path.isfile(parameters_file):
-		raise ValueError('The multivariate Gaussian parameters file could not be found ! Please make sure that you did not move "'+os.sep+'data'+os.sep+'banyan_sigma_parameters.fits" from the same path as the Python file banyan_sigma.py !')
-	
-	#Read the parameters of Bayesian hypotheses
-	parameters_str = Table.read(parameters_file,format='fits')
 	#Remove white spaces in names
 	parameters_str['NAME'] = np.chararray.strip(np.array(parameters_str['NAME']))
 
