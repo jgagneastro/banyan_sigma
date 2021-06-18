@@ -54,7 +54,7 @@ OUTPUT_STRUCTURE = BANYAN_SIGMA(stars_data=None, column_names=None, hypotheses=N
 
 ## OPTIONAL INPUTS:
 
-       stars_data: An structured array that contains at least the following informations: ra, dec, pmra, pmdec, epmra, and epmdec. It can also optionally contain the informations on rv, erv, dist, edist, plx, eplx, psira, psidec, epsira, epsidec. See the corresponding keyword descriptions for more information. If this input is not used, the keywords ra, dec, pmra, pmdec, epmra, and epmdec must all be specified.
+       stars_data:  A pandas dataframe or astropy table that contains at least the following informations: ra, dec, pmra, pmdec, epmra, and epmdec. It can also optionally contain the informations on rv, erv, dist, edist, plx, eplx, psira, psidec, epsira, epsidec. See the corresponding keyword descriptions for more information. If this input is not used, the keywords ra, dec, pmra, pmdec, epmra, and epmdec must all be specified.
        column_names: A Python dictionary that contains the names of the "stars_data" columns columns which differ from the default values listed above. For example, column_names = {'RA':'ICRS_RA'} can be used to specify that the RA values are listed in the column of stars_data named ICRS_RA.
        ra: Right ascension (decimal degrees). A N-elements array can be specified to calculate the Bayesian probability of several stars at once, but then all mandatory inputs must also be N-elements arrays.
        dec: Declination (decimal degrees).
