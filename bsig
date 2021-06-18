@@ -1,0 +1,125 @@
+#!/usr/bin/env python
+
+# Script to call get stellar positions and velocities and check association membership with BANYAN Sigma 
+# Call with: bsig star_name [-norv]
+# If there are any spaces in the star_name, make sure to use quotes.
+# -norv tells the code to ignore the RV from Simbad (in case you don't trust this)
+
+# To do: allow user to give alternate values for the parameters
+
+#Import the necessary packages
+from astroquery.simbad import Simbad
+from astropy.coordinates import SkyCoord, ICRS, LSR
+import astropy.units as u
+import pandas as pd
+import numpy as np #Numpy maths
+import pdb #Debugging
+import astropy.units as u
+from banyan_sigma import banyan_sigma
+import sys
+
+def name_resolver_webtool(name=None,output=False):
+    if name is None:
+        return
+
+    #Add required columns
+    Simbad.add_votable_fields('pmra','pmdec','pm_err_mina','pm_err_maja','pm_err_angle','pm_bibcode','plx','plx_error','rv_value','rvz_error',
+                           'rvz_bibcode','coo_bibcode','plx_bibcode')
+    
+    #Query Simbad
+    result_table = Simbad.query_object(name)
+    
+    #Convert coordinates
+    sky_pos = SkyCoord(result_table[0]['RA'],result_table[0]['DEC'], unit=(u.hour, u.deg), frame='icrs')
+    
+    #Convert proper motions
+    epmra = np.sqrt((np.sin(result_table[0]['PM_ERR_ANGLE']*u.degree).value*result_table[0]['PM_ERR_MAJA'])**2 + (np.cos(result_table[0]['PM_ERR_ANGLE']*u.degree).value*result_table[0]['PM_ERR_MINA'])**2)
+    epmdec = np.sqrt((np.cos(result_table[0]['PM_ERR_ANGLE']*u.degree).value*result_table[0]['PM_ERR_MAJA'])**2 + (np.sin(result_table[0]['PM_ERR_ANGLE']*u.degree).value*result_table[0]['PM_ERR_MINA'])**2)
+    
+    #Make sure to pass NaNs when values are masked
+    #Do this before passing to pandas to avoid an error
+    if (bool(result_table['RV_VALUE'].mask[0]) is True) or (bool(result_table['RVZ_ERROR'].mask[0]) is True):
+        result_table[0]['RV_VALUE'] = np.nan
+        result_table[0]['RVZ_ERROR'] = np.nan
+    if (bool(result_table['PLX_VALUE'].mask[0]) is True) or (bool(result_table['PLX_ERROR'].mask[0]) is True):
+        result_table[0]['PLX_VALUE'] = np.nan
+        result_table[0]['PLX_ERROR'] = np.nan
+    if (bool(result_table['PMRA'].mask[0]) is True) or (bool(result_table['PMDEC'].mask[0]) is True) or (bool(result_table['PM_ERR_MAJA'].mask[0]) is True) or (bool(result_table['PM_ERR_MINA'].mask[0]) is True) or (bool(result_table['PM_ERR_ANGLE'].mask[0]) is True):
+        result_table[0]['PMRA'] = np.nan
+        epmra = np.nan
+        result_table[0]['PMDEC'] = np.nan
+        epmdec = np.nan
+
+    #Store in a pandas DataFrame for easy csv export
+    data = pd.DataFrame({'Name':name,'RADEG':sky_pos.ra.degree,'DECDEG':sky_pos.dec.degree,'PMRA':result_table[0]['PMRA'],'ePMRA':epmra,'PMDEC':result_table[0]['PMDEC'],'ePMDEC':epmdec,'REFPM':result_table[0]['PM_BIBCODE'].decode('utf-8'),'VRAD':result_table[0]['RV_VALUE'],'eVRAD':result_table[0]['RVZ_ERROR'],'PLX':result_table[0]['PLX_VALUE'],'ePLX':result_table[0]['PLX_ERROR']},index=[0])
+
+    #Print data to screen
+    print("""Found the following data from Simbad:
+        RA = {0}    
+        Dec = {1}   Ref:{2}
+        PMRA = {3}+/-{4:.3f}mas/yr    
+        PMDec = {5}+/-{6:.3f}mas/yr   Ref:{7}
+        Plx = {8}+/-{9:.3f}     Ref: {10}
+        RV = {11}+/-{12:.3f}km/s    Ref: {13}
+        """.format(result_table[0]['RA'],result_table[0]['DEC'],result_table[0]['COO_BIBCODE'].decode('utf8'),result_table[0]['PMRA'],epmra,
+                result_table[0]['PMDEC'],epmdec,result_table[0]['PM_BIBCODE'].decode('utf8'),result_table[0]['PLX_VALUE'],
+                result_table[0]['PLX_ERROR'],result_table[0]['PLX_BIBCODE'].decode('utf8'),result_table[0]['RV_VALUE'],
+                result_table[0]['RVZ_ERROR'],
+                result_table[0]['RVZ_BIBCODE'].decode('utf8')))
+    
+    return data
+
+def banyan_sigma_resolver(name=None, use_rv=True):
+    if name is None:
+        return
+
+    data=name_resolver_webtool(name=name)
+    if np.isnan(data['VRAD'][0]): use_rv=False
+    if use_rv == True: output=banyan_sigma(ra=data['RADEG'][0],dec=data['DECDEG'][0],pmra=data['PMRA'][0],pmdec=data['PMDEC'][0],epmra=data['ePMRA'][0],epmdec=data['ePMDEC'][0],rv=data['VRAD'][0],erv=data['eVRAD'][0],plx=data['PLX'][0],eplx=data['ePLX'][0])
+    if use_rv == False: 
+        print('Ignoring radial velocity value')
+        output=banyan_sigma(ra=data['RADEG'][0],dec=data['DECDEG'][0],pmra=data['PMRA'][0],pmdec=data['PMDEC'][0],epmra=data['ePMRA'][0],epmdec=data['ePMDEC'][0],plx=data['PLX'][0],eplx=data['ePLX'][0])
+        
+    output_all = output['ALL'].copy()
+    probs = output_all.iloc[0].values*1e2
+    max_prob = 100.0 #99.9
+    probs = np.minimum(probs,max_prob)
+    probs_formatted = np.round(np.minimum(probs,max_prob),1)
+    output_all.loc[0] = probs_formatted
+            
+    #Read all most probable RVs
+    rv_opt = pd.DataFrame()
+    erv_opt = pd.DataFrame()
+    d_opt = pd.DataFrame()
+    ed_opt = pd.DataFrame()
+    for keys in output['ALL'].keys():
+        rv_opt[keys] = [np.round(output[keys]['RV_OPT'][0],1)]
+        erv_opt[keys] = [np.round(output[keys]['ERV_OPT'][0],1)]
+        d_opt[keys] = [np.round(output[keys]['D_OPT'][0],1)]
+        ed_opt[keys] = [np.round(output[keys]['ED_OPT'][0],1)]
+
+    besti=np.where(output_all.loc[0] > 1)
+    for i in besti[0]:
+        if use_rv==True: print(output['ALL'].keys()[i], output_all.loc[0][i])
+        if use_rv==False: 
+            print(output['ALL'].keys()[i], output_all.loc[0][i])
+            rv_opt=np.round(output[output['ALL'].keys()[i]]['RV_OPT'][0],1)
+            erv_opt=np.round(output[output['ALL'].keys()[i]]['ERV_OPT'][0],1)
+            print('    RV_helio =', rv_opt, '+/-', erv_opt, 'km/s')
+            icrs=ICRS(ra=data['RADEG'][0]*u.degree, dec=data['DECDEG'][0]*u.degree,
+                        distance=1e3/data['PLX'][0]*u.pc,
+                        pm_ra_cosdec=data['PMRA'][0]*np.cos(data['DECDEG'][0])*u.mas/u.yr, pm_dec=data['PMDEC'][0]*u.mas/u.yr,
+                        radial_velocity=rv_opt*u.km/u.s)
+            lsrc=icrs.transform_to(LSR)
+            rv_lsrk = np.round(lsrc.radial_velocity.value,1)
+            print('    RV_LSRK =', rv_lsrk, 'km/s')   
+
+#print(sys.argv[1])
+#print(len(sys.argv))
+use_rv=True
+if len(sys.argv) > 2: 
+    if sys.argv[2] == '-norv': use_rv=False
+banyan_sigma_resolver(name=sys.argv[1],use_rv=use_rv)
+
+
+    
