@@ -15,18 +15,36 @@ An online version of this tool is available for 1-object queries at http://www.e
 ## REQUIREMENTS:
 (1) This code requires Python 3 to run properly.
 
-(2) A fits file containing the parameters of the multivariate Gaussian models of each Bayesian hypothesis must be included at /data/banyan_sigma_parameters.fits in the directory where BANYAN_SIGMA() is compiled. The file provided with this release corresponds to the set of 27 young associations described in Gagné et al. (2018). The fits file can be written with the IDL MWRFITS.PRO function from an IDL array of structures of N elements, where N is the total number of multivariate Gaussians used in the models of all Bayesian hypotheses. Each element of this structure contains the following information:
+We highly recommend using a Python virtual environment to use this package, as several Python packages such as numpy have issued non-retrocompatible updates since the publication of this package. This can be done with the following steps once you are in the banyan_sigma directory (or anywhere else you prefer).
+
+       python -m venv banyan_sigma_env
+
+This will initiate a virtual environment where your Python packages specific to banyan_sigma will live, without disrupting your other installations.
+
+Once this is done, you need to activate this virtual environment with the follwing terminal command:
+
+       source banyan_sigma_env/bin/activate
+	   
+After activating this environment for the first time, you can install the correct versions of each Python package with the follwing command:
+
+       pip install -r requirements.txt
+
+Make sure you launch this command while you are in the banyan_sigma directory to ensure pip can find the file requirements.txt.
+
+Once the packages are installed, you can start using banyan_sigma. Every time where you want to use it in the future, you can navigate back to the banyan_sigma directory and activate the environment again.
+
+(2) A fits file containing the parameters of the multivariate Gaussian models of each Bayesian hypothesis must be included at /data/banyan_sigma_parameters.fits in the directory where banyan_sigma_ is compiled. The file provided with this release corresponds to the set of 27 young associations described in Gagné et al. (2018). The fits file can be written with the IDL MWRFITS.PRO function from an IDL array of structures of N elements, where N is the total number of multivariate Gaussians used in the models of all Bayesian hypotheses. Each element of this structure contains the following information:
 
        NAME: The name of the model (scalar string).
        CENTER_VEC: Central XYZUVW position of the model (6D vector, in units of pc and km/s).
        COVARIANCE_MATRIX: Covariance matrix in XYZUVW associated with the model (6x6 matrix, in mixed units of pc and km/s).
        PRECISION_MATRIX: (Optional) Matrix inverse of COVARIANCE_MATRIX, to avoid re-calculating it many times (6x6 matrix).
-       LN_NOBJ: (Optional) Natural logarithm of the number of objects used to build the synthetic model (scalar). This is not used in banyan_sigma().
+       LN_NOBJ: (Optional) Natural logarithm of the number of objects used to build the synthetic model (scalar). This is not used in banyan_sigma.
        COVARIANCE_DETERM: (Optional) Determinant of the covariance matrix, to avoid re-calculating it many times (scalar).
        PRECISION_DETERM: (Optional) Determinant of the precision matrix, to avoid re-calculating it many times (scalar).
        LN_ALPHA_K: (Optional) Natural logarithm of the alpha_k inflation factors that ensured a fixed rate of true positives at a given Bayesian probability treshold. See Gagné et al. (2018) for more detail (scalar or 4-elements vector). This is not used in BANYAN_SIGMA.
        LN_PRIOR: Natural logarithm of the Bayesian prior (scalar of 4-elements vector). When this is a 4-elements vector, the cases with only proper motion, proper motion + radial velocity, proper motion + distance or proper motion + radial velocity + distance will be used with the corresponding element of the LN_PRIOR vector.
-       LN_PRIOR_OBSERVABLES: Scalar string or 4-elements vector describing the observing modes used for each element of ln_prior. This is not used in banyan_sigma().
+       LN_PRIOR_OBSERVABLES: Scalar string or 4-elements vector describing the observing modes used for each element of ln_prior. This is not used in banyan_sigma.
        COEFFICIENT: Coefficient (or weight) for multivariate Gaussian mixture models. This will only be used if more than one element of the parameters array have the same model name (see below).  
            
 In Python, this fits file is read with the Astropy.Tables routine because it requires multi-dimensional columns. When more than one elements have the same model name, BANYAN_SIGMA will use the COEFFICIENTs to merge its Bayesian probability, therefore representing the hypothesis with a multivariate Gaussian model mixture. This is how the Galactic field is represented in Gagné et al. (2018).
@@ -45,11 +63,134 @@ Each component of the 4-elements dimension of TPR, FPR and PPV corresponds to a 
 When this fits file is used, the Bayesian probabilities of each star will be associated with a TPR, FPR, NFP and PPV values in the METRICS sub-structure of the output structure.
            
 This file must be located at /data/banyan_sigma_metrics.fits in the directory where BANYAN_SIGMA.pro is compiled. The file provided with this release corresponds to the set of models described in Gagné et al. (2018).
+
+Currently, we have not provided this file because it is rarely used, and the machine-learning performance metrics have not been computed for some of the more recent young associations.
            
 ## CALLING SEQUENCE:
  
 ```python
-OUTPUT_STRUCTURE = BANYAN_SIGMA(stars_data=None, column_names=None, hypotheses=None, ln_priors=None, ntargets_max=None, ra=None, dec=None, pmra=None, pmdec=None, epmra=None, epmdec=None, dist=None, edist=None, rv=None, erv=None, psira=None, psidec=None, epsira=None, epsidec=None, plx=None, eplx=None, constraint_dist_per_hyp=None, constraint_edist_per_hyp=None, unit_priors=True/False, lnp_only=True/False, no_xyz=True/False, use_rv=True/False, use_dist=True/False, use_plx=True/False, use_psi=True/False)
+
+from banyan_sigma.core import *
+
+output = membership_probability(stars_data=None, column_names=None, hypotheses=None, ln_priors=None, ntargets_max=None, ra=None, dec=None, pmra=None, pmdec=None, epmra=None, epmdec=None, dist=None, edist=None, rv=None, erv=None, psira=None, psidec=None, epsira=None, epsidec=None, plx=None, eplx=None, constraint_dist_per_hyp=None, constraint_edist_per_hyp=None, unit_priors=True/False, lnp_only=True/False, no_xyz=True/False, use_rv=True/False, use_dist=True/False, use_plx=True/False, use_psi=True/False)
+
+```
+
+## A SIMPLE EXAMPLE:
+
+In order to estimate the membership probability for the star AU Mic, one might do the following:
+
+```python
+
+from banyan_sigma.core import *
+
+ra=311.2911826481039
+dec=-31.3425000799281
+
+pmra=281.319
+epmra=0.022
+pmdec=-360.148
+epmdec=0.019
+
+plx=102.943
+eplx=0.023
+
+rv=-5.2
+erv=0.7
+
+
+output = membership_probability(ra=ra,dec=dec,pmra=pmra,pmdec=pmdec,epmra=epmra,epmdec=epmdec,plx=plx,eplx=eplx,rv=rv,erv=erv, use_plx=True, use_rv=True)
+```
+
+Because the output is a Pandas dataframe with 1 row (as we calculated the membership probabilities for one star), one might output the overall results with:
+
+```python
+output.iloc[0]
+
+118TAU         LN_P      -74.990764
+               D_OPT       9.714114
+               RV_OPT          -5.2
+               ED_OPT       0.00217
+               ERV_OPT          0.7
+                            ...    
+ALL            FIELD       0.001812
+YA_PROB        Global      0.998188
+LIST_PROB_YAS  Global          BPMG
+BEST_HYP       Global          BPMG
+BEST_YA        Global          BPMG
+Name: 0, Length: 763, dtype: object
+```
+
+Detailed membership probabilities (values go from zero to one) for all associations may be output with the following:
+
+```python
+output['ALL'].iloc[0]
+
+118TAU     1.016362e-29
+ABDMG      9.260548e-40
+BPMG       9.981879e-01
+CAR        2.304203e-27
+CARN       1.120327e-14
+CBER       0.000000e+00
+COL        1.317175e-31
+CRA        0.000000e+00
+EPSC      8.142372e-234
+ETAC       0.000000e+00
+HYA        1.365976e-95
+IC2391    1.093534e-188
+IC2602     0.000000e+00
+LCC        4.385118e-17
+OCT       3.659492e-183
+PL8       1.310888e-273
+PLE        2.264604e-72
+ROPH       0.000000e+00
+TAU        1.364748e-34
+THA        1.722218e-78
+THOR       0.000000e+00
+TWA        8.462222e-24
+UCL        8.794057e-12
+UCRA      3.927025e-237
+UMA        0.000000e+00
+USCO       1.383815e-20
+XFOR      8.764554e-118
+VCA       1.573234e-102
+ARG        8.089683e-20
+PRAE       0.000000e+00
+MUTAU      1.241229e-21
+PERI       3.295221e-75
+FIELD      1.812123e-03
+Name: 0, dtype: float64
+```
+
+Detailed properties for a given association such as Beta Pictoris (BPMG) can be obtained with:
+
+```python
+output['BPMG'].iloc[0]
+
+LN_P           -8.233839
+D_OPT           9.714114
+RV_OPT         -5.200000
+ED_OPT          0.002170
+ERV_OPT         0.700000
+X               7.589092
+Y               1.703744
+Z              -5.819531
+U             -10.563371
+V             -16.192239
+W              -9.835885
+EX              0.001696
+EY              0.000381
+EZ              0.001300
+EU              0.546874
+EV              0.122828
+EW              0.419364
+XYZ_SEP        13.427037
+UVW_SEP         0.886663
+XYZ_SIG         1.721692
+UVW_SIG         0.874458
+MAHALANOBIS     1.748404
+Name: 0, dtype: float64
+
 ```
 
 ## OPTIONAL INPUTS:
@@ -125,5 +266,5 @@ These per-association sub-structures contain the following keys:
        MAHALANOBIS: Mahalanobis distance between the optimal or measured XYZUVW position of the star and the multivariate Gaussian model. A Mahalanobis distance is a generalization of a 6D N-sigma distance that accounts for covariances. 
 
 ### KNOWN BUGS
-* Crashes when no metrics.fits file is provided, but that file should be optional.
+
 * NO_XYZ has not been implemented yet.

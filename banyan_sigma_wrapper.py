@@ -2,7 +2,7 @@
 import pandas as pd
 import numpy as np #Numpy maths
 from banyan_sigma import banyan_sigma
-import pdb #Debugging
+#import pdb #Debugging
 #/home/ipm/banyan/python_launch_banyansigma.bash 'HIP9' '0.035320833333333336' '36.58595833333334' '-6.88' '0.5799999833106995' '8.57' '1.0399999618530273' '2007A&A...474..653V' '-9999' '-9999' '2.38' '0.9300000071525574'
 
 def banyan_sigma_wrapper(name=None,ip=None,ra=None,dec=None,pmra=None,pmdec=None,epmra=None,epmdec=None,rv=None,erv=None,plx=None,eplx=None):

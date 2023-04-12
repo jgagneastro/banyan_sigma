@@ -9,12 +9,12 @@ import os #Access to environment variables
 import pandas as pd #Pandas dataframes will be used to store BANYAN Sigma outputs
 from astropy.table import Table #Reading astro-formatted tables
 import warnings #Raise user-defined Python warnings
-import pdb #Debugging
+#import pdb #Debugging
 from scipy.stats import describe #Useful for debugging
 from scipy.special import logsumexp #Useful to sum logarithms in a numerically stable way
 
 #A more user-friendly way to set break points
-stop = pdb.set_trace
+#stop = pdb.set_trace
 
 #A very small number used for numerical stability
 tiny_number = 1e-318
@@ -44,7 +44,7 @@ sin_dec_pol = np.sin(np.radians(dec_pol))
 cos_dec_pol = np.cos(np.radians(dec_pol))
 
 #Main BANYAN_SIGMA routine
-def banyan_sigma(stars_data=None,column_names=None,hypotheses=None,ln_priors=None,ntargets_max=1e7,ra=None,dec=None,pmra=None,pmdec=None,epmra=None,epmdec=None,dist=None,edist=None,rv=None,erv=None,psira=None,psidec=None,epsira=None,epsidec=None,plx=None,eplx=None,constraint_dist_per_hyp=None,constraint_edist_per_hyp=None,unit_priors=False,lnp_only=False,no_xyz=False,use_rv=None,use_dist=None,use_plx=None,use_psi=None,custom_models=None):
+def membership_probability(stars_data=None,column_names=None,hypotheses=None,ln_priors=None,ntargets_max=1e7,ra=None,dec=None,pmra=None,pmdec=None,epmra=None,epmdec=None,dist=None,edist=None,rv=None,erv=None,psira=None,psidec=None,epsira=None,epsidec=None,plx=None,eplx=None,constraint_dist_per_hyp=None,constraint_edist_per_hyp=None,unit_priors=False,lnp_only=False,no_xyz=False,use_rv=None,use_dist=None,use_plx=None,use_psi=None,custom_models=None):
 	
 	#Automatically detect Astropy Tables and transform them to pandas dataframes
 	if stars_data is not None:
@@ -89,13 +89,13 @@ def banyan_sigma(stars_data=None,column_names=None,hypotheses=None,ln_priors=Non
 	#Check if a column named PLX, DIST, RV, PSIRA, etc. exist in stars_data but not in column_names. If this is the case, issue a warning so that the user understands that some data are not being considered.
 	if stars_data is not None:
 		if 'PLX' in stars_data.keys() and 'PLX' not in column_names.keys() and use_plx is None:
-			warnings.warn('Parallaxes (PLX) were not read from the input data, because the PLX key was not included in the column_names keyword of banyan_sigma(). You can also call banyan_sigma() with the use_plx=True keyword to read them, or with use_plx=False to avoid this warning message.')
+			warnings.warn('Parallaxes (PLX) were not read from the input data, because the PLX key was not included in the column_names keyword of estimate_memership_probability(). You can also call estimate_memership_probability() with the use_plx=True keyword to read them, or with use_plx=False to avoid this warning message.')
 		if 'DIST' in stars_data.keys() and 'DIST' not in column_names.keys() and use_dist is None:
-			warnings.warn('Distances (DIST) were not read from the input data, because the DIST key was not included in the column_names keyword of banyan_sigma(). You can also call banyan_sigma() with the use_dist=True keyword to read them, or with use_dist=False to avoid this warning message.')
+			warnings.warn('Distances (DIST) were not read from the input data, because the DIST key was not included in the column_names keyword of estimate_memership_probability(). You can also call estimate_memership_probability() with the use_dist=True keyword to read them, or with use_dist=False to avoid this warning message.')
 		if 'RV' in stars_data.keys() and 'RV' not in column_names.keys() and use_rv is None:
-			warnings.warn('Radial velocities (RV) were not read from the input data, because the RV key was not included in the column_names keyword of banyan_sigma(). You can also call banyan_sigma() with use_rv=True to read them, or with use_rv=False to avoid this warning message.')
+			warnings.warn('Radial velocities (RV) were not read from the input data, because the RV key was not included in the column_names keyword of estimate_memership_probability(). You can also call estimate_memership_probability() with use_rv=True to read them, or with use_rv=False to avoid this warning message.')
 		if ('PSIRA' in stars_data.keys() and 'PSIRA' not in column_names.keys()) or ('PSIDEC' in stars_data.keys() and 'PSIDEC' not in column_names.keys()) and use_psi is None:
-			warnings.warn('The PSI parameters (PSIRA,PSIDEC) were not read from the input data, because the PSIRA and PSIDEC keys were not included in the column_data keyword of banyan_sigma(). You can also call banyan_sigma() with use_psi=True keyword to read them, or with use_psi=False to avoid this warning message.')
+			warnings.warn('The PSI parameters (PSIRA,PSIDEC) were not read from the input data, because the PSIRA and PSIDEC keys were not included in the column_data keyword of estimate_memership_probability(). You can also call estimate_memership_probability() with use_psi=True keyword to read them, or with use_psi=False to avoid this warning message.')
 	
 	#Create a table of data for BANYAN SIGMA to use
 	if ra is not None:
@@ -398,7 +398,7 @@ def banyan_sigma(stars_data=None,column_names=None,hypotheses=None,ln_priors=Non
 			if ngauss == 1:
 				all_lnprobs[:,i] = all_lnprobs_hypi
 			else:
-				weights = parameters_str.loc[hypotheses[i]]['COEFFICIENT']
+				weights = np.array(parameters_str.loc[hypotheses[i]]['COEFFICIENT'])
 				weights /= np.sum(weights)
 				all_lnprobs[:,i] = logsumexp(np.tile(np.log(weights),(nobj,1))+all_lnprobs_hypi,axis=1)
 			continue
@@ -409,7 +409,7 @@ def banyan_sigma(stars_data=None,column_names=None,hypotheses=None,ln_priors=Non
 			output_str_multimodel = pd.concat(output_str_multimodel_list,axis=1)
 			
 			#Create a 2D array of weights to combine the Gaussian mixture components
-			weights = parameters_str.loc[hypotheses[i]]['COEFFICIENT']
+			weights = np.array(parameters_str.loc[hypotheses[i]]['COEFFICIENT'])
 			weights /= np.sum(weights)
 			logweights_2d = np.tile(np.log(weights),(nobj,1))
 			
@@ -470,8 +470,8 @@ def banyan_sigma(stars_data=None,column_names=None,hypotheses=None,ln_priors=Non
 	metrics_file = os.path.dirname(__file__)+os.sep+'data'+os.sep+'banyan_sigma_metrics.fits'
 	
 	#Check if the file exists
-	if not os.path.isfile(metrics_file):
-		warnings.warn('The performance metrics file could not be found ! Performance metrics will not be calculated. Please make sure that you did not move "'+os.sep+'data'+os.sep+'banyan_sigma_metrics.fits" from the same path as the Python file banyan_sigma.py !')
+	#if not os.path.isfile(metrics_file):
+	#	warnings.warn('The performance metrics file could not be found ! Performance metrics will not be calculated. Please make sure that you did not move "'+os.sep+'data'+os.sep+'banyan_sigma_metrics.fits" from the same path as the Python file banyan_sigma.py !')
 	
 	#Avoid computing biased metrics if the unit_priors keyword was set
 	if os.path.isfile(metrics_file) and unit_priors is False:
