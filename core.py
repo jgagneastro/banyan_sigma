@@ -276,7 +276,11 @@ def membership_probability(stars_data=None,column_names=None,hypotheses=None,ln_
 		if hypotheses[i].find('FIELD') != -1:
 			continue
 		#Read the parameters structure to identify the 4 priors associated with a given young association
-		ln_priors_i = parameters_str.loc[hypotheses[i]]['LN_PRIOR']
+		#We must be careful here for associations that have more than one Gaussian component
+		if len(parameters_str.loc[hypotheses[i]]['LN_PRIOR'].shape) == 2:
+			ln_priors_i = parameters_str.loc[hypotheses[i]][0]['LN_PRIOR']
+		else:
+			ln_priors_i = parameters_str.loc[hypotheses[i]]['LN_PRIOR']
 		#In the cases where only one prior is designated, assign it to all stars
 		if ln_priors_i.size == 1:
 			ln_priors_nd[:,i] = ln_priors_i[0]
