@@ -307,12 +307,6 @@ def membership_probability(stars_data=None,column_names=None,hypotheses=None,ln_
 		
 		#Apply the manual priors on top of the default priors
 		ln_priors_nd += ln_priors_nd_manual
-	
-	#Check for problematic ln_priors
-	if not np.isfinite(ln_priors_nd).min():
-		raise Exception("Some ln_p values are infinite ! Check your models FITS file !")
-	if np.isnan(ln_priors_nd).max():
-		raise Exception("Some ln_p values are NaN ! Check your models FITS file !")
 
 	#If both trigonometric distances and per-hypothesis distance constraints are set, transform the per-hypothesis distance constraints into priors
 	both_distances_set = []
@@ -456,6 +450,12 @@ def membership_probability(stars_data=None,column_names=None,hypotheses=None,ln_
 	#Create an array of normalized YMG probabilities (no field)
 	ln_norm_output_only_ymg = all_lnprobs[:,yind] - np.tile(logsumexp(all_lnprobs[:,yind],axis=1),(yind.size,1)).transpose()
 	
+	#Check for problematic ln_priors
+	if not np.isfinite(ln_priors_nd[:,yind]).min():
+		raise Exception("Some ln_p values are infinite ! Check your models FITS file !")
+	if np.isnan(ln_priors_nd[:,yind]).max():
+		raise Exception("Some ln_p values are NaN ! Check your models FITS file !")
+
 	#Calculate the weighted YMG prior
 	ln_prior_moving_groups = logsumexp(ln_priors_nd[:,yind]+ln_norm_output_only_ymg,axis=1)
 	
