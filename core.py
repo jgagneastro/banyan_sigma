@@ -308,6 +308,12 @@ def membership_probability(stars_data=None,column_names=None,hypotheses=None,ln_
 		#Apply the manual priors on top of the default priors
 		ln_priors_nd += ln_priors_nd_manual
 	
+	#Check for problematic ln_priors
+	if not np.isfinite(ln_priors_nd).min():
+		raise Exception("Some ln_p values are infinite ! Check your models FITS file !")
+	if np.isnan(ln_priors_nd).max():
+		raise Exception("Some ln_p values are NaN ! Check your models FITS file !")
+
 	#If both trigonometric distances and per-hypothesis distance constraints are set, transform the per-hypothesis distance constraints into priors
 	both_distances_set = []
 	if constraint_dist_per_hyp is not None:
@@ -409,6 +415,7 @@ def membership_probability(stars_data=None,column_names=None,hypotheses=None,ln_
 		
 		#Reformat the output structure if there is more than one multivariate gaussian
 		if ngauss != 1:
+
 			#Concatenate the list of pandas dataframes into a single dataframe
 			output_str_multimodel = pd.concat(output_str_multimodel_list,axis=1)
 			
@@ -422,7 +429,7 @@ def membership_probability(stars_data=None,column_names=None,hypotheses=None,ln_
 			#Had to add a .values here
 			for coli in output_str_multimodel.columns.get_level_values(0):
 				output_str[coli] = logsumexp(logweights_2d+output_str_multimodel[coli].values,axis=1)
-	
+
 		#Use column multi-indexing to add a second title to the columns, which corresponds to the name of the Bayesian hypothesis
 		dataframe_column_names = output_str.columns
 		output_str.columns = [np.array(dataframe_column_names),np.array(np.tile(hypotheses[i],dataframe_column_names.size))]
@@ -457,11 +464,11 @@ def membership_probability(stars_data=None,column_names=None,hypotheses=None,ln_
 	
 	#Weight the priors w/r/t the Bayesian probabilities and project these priors onto the field. This is a way to avoid having the priors change the relative moving group probabilities, as their goal is strictly to maximize young association vs FIELD classification performance
   	#Normalize probabilities directly in log space, projecting the inverse young association prior on the field probability
-	ln_P_with_prior = all_lnprobs
+	ln_P_with_prior = all_lnprobs.copy()
 	ln_P_with_prior[:,ffind] -= np.tile(ln_prior_moving_groups,(ffind.size,1)).transpose()
 	#Renormalize
 	ln_norm_output_prior = ln_P_with_prior - np.tile(logsumexp(ln_P_with_prior,axis=1),(nhyp,1)).transpose()
-	
+
 	#Return log probabilities if this is the only required output
 	if lnp_only is True:
 		return ln_norm_output_prior
@@ -472,7 +479,7 @@ def membership_probability(stars_data=None,column_names=None,hypotheses=None,ln_
 	#Data file containing the parameters of Bayesian hypotheses
 	metrics_computed = False
 	metrics_file = os.path.dirname(__file__)+os.sep+'data'+os.sep+'banyan_sigma_metrics.fits'
-	
+
 	#Check if the file exists
 	#if not os.path.isfile(metrics_file):
 	#	warnings.warn('The performance metrics file could not be found ! Performance metrics will not be calculated. Please make sure that you did not move "'+os.sep+'data'+os.sep+'banyan_sigma_metrics.fits" from the same path as the Python file banyan_sigma.py !')
