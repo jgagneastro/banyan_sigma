@@ -43,11 +43,13 @@ If you prefer to use conda instead of pyenv, you can follow these steps:
 
 Note that you can choose your own environment name instead of bsigma_env.
 
+## A SIMPLE EXAMPLE:
+
 Once the packages are installed, you can start using banyan_sigma. First open Python:
 
        python
 
-Here is an example code to calculate a membership probability using a specific set of observables which you can paste directly in Python:
+Here is an example code to calculate a membership probability using a specific set of observables (for the star AU Mic) which you can paste directly in Python:
        
     from banyan_sigma import *
     
@@ -75,7 +77,7 @@ Here is an example code to calculate a membership probability using a specific s
     #Inverstigate the outputs
     output.iloc[0]
 
-The outputs should look like this:
+Because the output is a Pandas dataframe with 1 row (as we calculated the membership probabilities for one star), one might output the overall results with:
 
     >>> output.iloc[0]
     118TAU         LN_P      -74.990764
@@ -90,94 +92,6 @@ The outputs should look like this:
     BEST_HYP       Global          BPMG
     BEST_YA        Global          BPMG
     Name: 0, Length: 763, dtype: object
-
-(2) A fits file containing the parameters of the multivariate Gaussian models of each Bayesian hypothesis must be included at /data/banyan_sigma_parameters.fits in the directory where banyan_sigma_ is compiled. The file provided with this release corresponds to the set of 27 young associations described in Gagné et al. (2018). The fits file can be written with the IDL MWRFITS.PRO function from an IDL array of structures of N elements, where N is the total number of multivariate Gaussians used in the models of all Bayesian hypotheses. Each element of this structure contains the following information:
-
-       NAME: The name of the model (scalar string).
-       CENTER_VEC: Central XYZUVW position of the model (6D vector, in units of pc and km/s).
-       COVARIANCE_MATRIX: Covariance matrix in XYZUVW associated with the model (6x6 matrix, in mixed units of pc and km/s).
-       PRECISION_MATRIX: (Optional) Matrix inverse of COVARIANCE_MATRIX, to avoid re-calculating it many times (6x6 matrix).
-       LN_NOBJ: (Optional) Natural logarithm of the number of objects used to build the synthetic model (scalar). This is not used in banyan_sigma.
-       COVARIANCE_DETERM: (Optional) Determinant of the covariance matrix, to avoid re-calculating it many times (scalar).
-       PRECISION_DETERM: (Optional) Determinant of the precision matrix, to avoid re-calculating it many times (scalar).
-       LN_ALPHA_K: (Optional) Natural logarithm of the alpha_k inflation factors that ensured a fixed rate of true positives at a given Bayesian probability treshold. See Gagné et al. (2018) for more detail (scalar or 4-elements vector). This is not used in BANYAN_SIGMA.
-       LN_PRIOR: Natural logarithm of the Bayesian prior (scalar of 4-elements vector). When this is a 4-elements vector, the cases with only proper motion, proper motion + radial velocity, proper motion + distance or proper motion + radial velocity + distance will be used with the corresponding element of the LN_PRIOR vector.
-       LN_PRIOR_OBSERVABLES: Scalar string or 4-elements vector describing the observing modes used for each element of ln_prior. This is not used in banyan_sigma.
-       COEFFICIENT: Coefficient (or weight) for multivariate Gaussian mixture models. This will only be used if more than one element of the parameters array have the same model name (see below).  
-           
-In Python, this fits file is read with the Astropy.Tables routine because it requires multi-dimensional columns. When more than one elements have the same model name, BANYAN_SIGMA will use the COEFFICIENTs to merge its Bayesian probability, therefore representing the hypothesis with a multivariate Gaussian model mixture. This is how the Galactic field is represented in Gagné et al. (2018).
-
-(3) (Optional) A fits file containing the various performance metrics (true positive rate, false positive rate, positive predictive value) as a function of the Bayesian probability treshold, for each young association. Each element of this structure contains the following information:
-
-       NAME: The name of the model (scalar string).
-       PROBS: N-elements array containing a list of Bayesian probabilities (%).
-       TPR: Nx4-elements array containing the rate of true positives that correspond to each of the Bayesian probability (lower) tresholds stored in PROBS.
-       FPR: Nx4-elements array containing the rate  of false positives that correspond to each of the Bayesian probability (lower) tresholds stored in PROBS.
-       PPV: Nx4-elements array containing the Positive Predictive Values that correspond to each of the Bayesian probability (lower) tresholds stored in PROBS.
-       NFP: Number of expected false positives (FPR times the ~7 million stars in the Besancon simulation of the Solar neighborhood) 
-       
-Each component of the 4-elements dimension of TPR, FPR and PPV corresponds to a different mode of input data, see the description of "LN_PRIOR" above for more detail.
-
-When this fits file is used, the Bayesian probabilities of each star will be associated with a TPR, FPR, NFP and PPV values in the METRICS sub-structure of the output structure.
-           
-This file must be located at /data/banyan_sigma_metrics.fits in the directory where BANYAN_SIGMA.pro is compiled. The file provided with this release corresponds to the set of models described in Gagné et al. (2018).
-
-Currently, we have not provided this file because it is rarely used, and the machine-learning performance metrics have not been computed for some of the more recent young associations.
-           
-## CALLING SEQUENCE:
- 
-```python
-
-from banyan_sigma.core import *
-
-output = membership_probability(stars_data=None, column_names=None, hypotheses=None, ln_priors=None, ntargets_max=None, ra=None, dec=None, pmra=None, pmdec=None, epmra=None, epmdec=None, dist=None, edist=None, rv=None, erv=None, psira=None, psidec=None, epsira=None, epsidec=None, plx=None, eplx=None, constraint_dist_per_hyp=None, constraint_edist_per_hyp=None, unit_priors=True/False, lnp_only=True/False, no_xyz=True/False, use_rv=True/False, use_dist=True/False, use_plx=True/False, use_psi=True/False)
-
-```
-
-## A SIMPLE EXAMPLE:
-
-In order to estimate the membership probability for the star AU Mic, one might do the following:
-
-```python
-
-from banyan_sigma.core import *
-
-ra=311.2911826481039
-dec=-31.3425000799281
-
-pmra=281.319
-epmra=0.022
-pmdec=-360.148
-epmdec=0.019
-
-plx=102.943
-eplx=0.023
-
-rv=-5.2
-erv=0.7
-
-
-output = membership_probability(ra=ra,dec=dec,pmra=pmra,pmdec=pmdec,epmra=epmra,epmdec=epmdec,plx=plx,eplx=eplx,rv=rv,erv=erv, use_plx=True, use_rv=True)
-```
-
-Because the output is a Pandas dataframe with 1 row (as we calculated the membership probabilities for one star), one might output the overall results with:
-
-```python
-output.iloc[0]
-
-118TAU         LN_P      -74.990764
-               D_OPT       9.714114
-               RV_OPT          -5.2
-               ED_OPT       0.00217
-               ERV_OPT          0.7
-                            ...    
-ALL            FIELD       0.001812
-YA_PROB        Global      0.998188
-LIST_PROB_YAS  Global          BPMG
-BEST_HYP       Global          BPMG
-BEST_YA        Global          BPMG
-Name: 0, Length: 763, dtype: object
-```
 
 Detailed membership probabilities (values go from zero to one) for all associations may be output with the following:
 
@@ -251,6 +165,39 @@ Name: 0, dtype: float64
 
 ```
 
+(2) A fits file containing the parameters of the multivariate Gaussian models of each Bayesian hypothesis must be included at /data/banyan_sigma_parameters.fits in the directory where banyan_sigma_ is compiled. The file provided with this release corresponds to the set of 27 young associations described in Gagné et al. (2018). The fits file can be written with the IDL MWRFITS.PRO function from an IDL array of structures of N elements, where N is the total number of multivariate Gaussians used in the models of all Bayesian hypotheses. Each element of this structure contains the following information:
+
+       NAME: The name of the model (scalar string).
+       CENTER_VEC: Central XYZUVW position of the model (6D vector, in units of pc and km/s).
+       COVARIANCE_MATRIX: Covariance matrix in XYZUVW associated with the model (6x6 matrix, in mixed units of pc and km/s).
+       PRECISION_MATRIX: (Optional) Matrix inverse of COVARIANCE_MATRIX, to avoid re-calculating it many times (6x6 matrix).
+       LN_NOBJ: (Optional) Natural logarithm of the number of objects used to build the synthetic model (scalar). This is not used in banyan_sigma.
+       COVARIANCE_DETERM: (Optional) Determinant of the covariance matrix, to avoid re-calculating it many times (scalar).
+       PRECISION_DETERM: (Optional) Determinant of the precision matrix, to avoid re-calculating it many times (scalar).
+       LN_ALPHA_K: (Optional) Natural logarithm of the alpha_k inflation factors that ensured a fixed rate of true positives at a given Bayesian probability treshold. See Gagné et al. (2018) for more detail (scalar or 4-elements vector). This is not used in BANYAN_SIGMA.
+       LN_PRIOR: Natural logarithm of the Bayesian prior (scalar of 4-elements vector). When this is a 4-elements vector, the cases with only proper motion, proper motion + radial velocity, proper motion + distance or proper motion + radial velocity + distance will be used with the corresponding element of the LN_PRIOR vector.
+       LN_PRIOR_OBSERVABLES: Scalar string or 4-elements vector describing the observing modes used for each element of ln_prior. This is not used in banyan_sigma.
+       COEFFICIENT: Coefficient (or weight) for multivariate Gaussian mixture models. This will only be used if more than one element of the parameters array have the same model name (see below).  
+           
+In Python, this fits file is read with the Astropy.Tables routine because it requires multi-dimensional columns. When more than one elements have the same model name, BANYAN_SIGMA will use the COEFFICIENTs to merge its Bayesian probability, therefore representing the hypothesis with a multivariate Gaussian model mixture. This is how the Galactic field is represented in Gagné et al. (2018).
+
+(3) (Optional) A fits file containing the various performance metrics (true positive rate, false positive rate, positive predictive value) as a function of the Bayesian probability treshold, for each young association. Each element of this structure contains the following information:
+
+       NAME: The name of the model (scalar string).
+       PROBS: N-elements array containing a list of Bayesian probabilities (%).
+       TPR: Nx4-elements array containing the rate of true positives that correspond to each of the Bayesian probability (lower) tresholds stored in PROBS.
+       FPR: Nx4-elements array containing the rate  of false positives that correspond to each of the Bayesian probability (lower) tresholds stored in PROBS.
+       PPV: Nx4-elements array containing the Positive Predictive Values that correspond to each of the Bayesian probability (lower) tresholds stored in PROBS.
+       NFP: Number of expected false positives (FPR times the ~7 million stars in the Besancon simulation of the Solar neighborhood) 
+       
+Each component of the 4-elements dimension of TPR, FPR and PPV corresponds to a different mode of input data, see the description of "LN_PRIOR" above for more detail.
+
+When this fits file is used, the Bayesian probabilities of each star will be associated with a TPR, FPR, NFP and PPV values in the METRICS sub-structure of the output structure.
+           
+This file must be located at /data/banyan_sigma_metrics.fits in the directory where BANYAN_SIGMA.pro is compiled. The file provided with this release corresponds to the set of models described in Gagné et al. (2018).
+
+Currently, we have not provided this file because it is rarely used, and the machine-learning performance metrics have not been computed for some of the more recent young associations.
+           
 ## OPTIONAL INPUTS:
 
        stars_data: An structured array that contains at least the following informations: ra, dec, pmra, pmdec, epmra, and epmdec. It can also optionally contain the informations on rv, erv, dist, edist, plx, eplx, psira, psidec, epsira, epsidec. See the corresponding keyword descriptions for more information. If this input is not used, the keywords ra, dec, pmra, pmdec, epmra, and epmdec must all be specified.
