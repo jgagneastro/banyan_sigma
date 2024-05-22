@@ -1,0 +1,3 @@
+If you would like to revert the BANYAN Sigma models to the original ones from the 2018 paper (https://ui.adsabs.harvard.edu/abs/2018ApJ...856...23G/abstract), delete or move the file /data/banyan_sigma_parameters.fits, and then move the file /data/as_bsigma_paper/banyan_sigma_parameters.fits into /data/banyan_sigma_parameters.fits.
+
+You can also move the file /data/as_bsigma_paper/banyan_sigma_metrics.fits into /data/banyan_sigma_metrics.fits and BANYAN Sigma will compute the false-positive, false-negative etc. metrics described in the original paper. Note that these metric translations have not been computed for the most recent models; this is why the metrics file is missing by default.

@@ -362,13 +362,13 @@ def membership_probability(stars_data=None,column_names=None,hypotheses=None,ln_
 				parameters_str_row = parameters_str.loc[hypotheses[i]][gaussi]
 			
 			#Determine how many batches will be needed to avoid saturating the RAM
-			nbatches = np.int(np.ceil(nobj/ntargets_max))
+			nbatches = int(np.ceil(nobj/ntargets_max))
 			output_str_list = []
 			for ci in range(nbatches):
 				#Determine the indices of the stars to be selected
-				ind_from = np.int(np.round(ci*ntargets_max))
-				ind_to = np.int(ind_from + np.round(ntargets_max))
-				ind_to = np.minimum(ind_to,np.int(nobj))
+				ind_from = int(np.round(ci*ntargets_max))
+				ind_to = int(ind_from + np.round(ntargets_max))
+				ind_to = np.minimum(ind_to,int(nobj))
 				
 				#Create a sub-structure of input data
 				data_table_ci = data_table[ind_from:ind_to]
