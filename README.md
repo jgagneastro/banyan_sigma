@@ -39,6 +39,7 @@ If you prefer to use conda instead of pyenv, you can follow these steps:
 
 	conda create --name bsigma_env python==3.12.3
 	conda activate bsigma_env
+	pip install git+https://github.com/jgagneastro/banyan_sigma.git
 
 Note that you can choose your own environment name instead of bsigma_env.
 
