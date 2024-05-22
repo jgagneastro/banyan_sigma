@@ -45,11 +45,13 @@ Note that you can choose your own environment name instead of bsigma_env.
 
 Once the packages are installed, you can start using banyan_sigma. Here is an example code to calculate a membership probability using a specific set of observables:
 
+       python
+       
        from banyan_sigma import *
        
        #Define observables for an example star
-       ra=311.2911826481039
-       dec=-31.3425000799281
+    ra=311.2911826481039
+    dec=-31.3425000799281
        
        #Proper motions are provided in mas/yr, pmra is implicitly pmra*cos(dec)
        pmra=281.319
