@@ -75,6 +75,22 @@ Here is an example code to calculate a membership probability using a specific s
     #Inverstigate the outputs
     output.iloc[0]
 
+The outputs should look like this:
+
+    >>> output.iloc[0]
+    118TAU         LN_P      -74.990764
+                   D_OPT       9.714114
+                   RV_OPT          -5.2
+                   ED_OPT       0.00217
+                   ERV_OPT          0.7
+                                ...    
+    ALL            FIELD       0.001812
+    YA_PROB        Global      0.998188
+    LIST_PROB_YAS  Global          BPMG
+    BEST_HYP       Global          BPMG
+    BEST_YA        Global          BPMG
+    Name: 0, Length: 763, dtype: object
+
 (2) A fits file containing the parameters of the multivariate Gaussian models of each Bayesian hypothesis must be included at /data/banyan_sigma_parameters.fits in the directory where banyan_sigma_ is compiled. The file provided with this release corresponds to the set of 27 young associations described in Gagné et al. (2018). The fits file can be written with the IDL MWRFITS.PRO function from an IDL array of structures of N elements, where N is the total number of multivariate Gaussians used in the models of all Bayesian hypotheses. Each element of this structure contains the following information:
 
        NAME: The name of the model (scalar string).
