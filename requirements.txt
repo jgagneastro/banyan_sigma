@@ -1,4 +1,4 @@
-numpy==1.23.3
-pandas==1.4.3
-scipy==1.9.1
-astropy==5.2.2
+numpy==1.26.4
+pandas==2.2.2
+scipy==1.13.0
+astropy==6.1.0

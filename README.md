@@ -15,23 +15,60 @@ An online version of this tool is available for 1-object queries at http://www.e
 ## REQUIREMENTS:
 (1) This code requires Python 3 to run properly.
 
-We highly recommend using a Python virtual environment to use this package, as several Python packages such as numpy have issued non-retrocompatible updates since the publication of this package. This can be done with the following steps once you are in the banyan_sigma directory (or anywhere else you prefer).
+The latest version of this package was only tested with Python 3.12.3 installed with a Mac M1-native conda setup.
+
+We highly recommend using a Python virtual environment (or a conda environment) to use this package, as some Python packages may have issued non-retro compatible updates since the publication of this package. This can be done with the following steps once you are in the banyan_sigma directory (or anywhere else you prefer).
 
        python -m venv banyan_sigma_env
 
 This will initiate a virtual environment where your Python packages specific to banyan_sigma will live, without disrupting your other installations.
 
-Once this is done, you need to activate this virtual environment with the follwing terminal command:
+Once this is done, you need to activate this virtual environment with the following terminal command:
 
        source banyan_sigma_env/bin/activate
 	   
-After activating this environment for the first time, you can install the correct versions of each Python package with the follwing command:
+You can then install banyan sigma with the following command:
 
-       pip install -r requirements.txt
+	pip install git+https://github.com/jgagneastro/banyan_sigma.git
 
-Make sure you launch this command while you are in the banyan_sigma directory to ensure pip can find the file requirements.txt.
+This should now install the exact versions of all the required subpackages. However, if you have locally downloaded the BANYAN Sigma tool and included it in your Python Path environment variable, you may need to do this manually, using:
 
-Once the packages are installed, you can start using banyan_sigma. Every time where you want to use it in the future, you can navigate back to the banyan_sigma directory and activate the environment again.
+       pip install -r [your/own/path]/banyan_sigma/requirements.txt
+       
+If you prefer to use conda instead of pyenv, you can follow these steps:
+
+	conda create --name bsigma_env python==3.12.3
+	conda activate bsigma_env
+
+Note that you can choose your own environment name instead of bsigma_env.
+
+Once the packages are installed, you can start using banyan_sigma. Here is an example code to calculate a membership probability using a specific set of observables:
+
+	from banyan_sigma import *
+
+	#Define observables for an example star
+	ra=311.2911826481039
+	dec=-31.3425000799281
+	
+	#Proper motions are provided in mas/yr, pmra is implicitly pmra*cos(dec)
+	pmra=281.319
+	epmra=0.022
+	pmdec=-360.148
+	epmdec=0.019
+
+	#Parallaxes are provided in mas
+	plx=102.943
+	eplx=0.023
+	
+	#Radial velocities are provided in km/s
+	rv=-5.2
+	erv=0.7
+
+	#Determine membership probability
+	output = membership_probability(ra=ra,dec=dec,pmra=pmra,pmdec=pmdec,epmra=epmra,epmdec=epmdec,plx=plx,eplx=eplx,rv=rv,erv=erv, use_plx=True, use_rv=True)
+	
+	#Inverstigate the outputs
+	output.iloc[0]
 
 (2) A fits file containing the parameters of the multivariate Gaussian models of each Bayesian hypothesis must be included at /data/banyan_sigma_parameters.fits in the directory where banyan_sigma_ is compiled. The file provided with this release corresponds to the set of 27 young associations described in Gagné et al. (2018). The fits file can be written with the IDL MWRFITS.PRO function from an IDL array of structures of N elements, where N is the total number of multivariate Gaussians used in the models of all Bayesian hypotheses. Each element of this structure contains the following information:
 

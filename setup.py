@@ -22,7 +22,7 @@ CLASSIFIERS = [
     "Operating System :: OS Independent",
     "Programming Language :: Python",
 ]
-INSTALL_REQUIRES = ["numpy","scipy","pandas","astropy"]
+INSTALL_REQUIRES = ["numpy==1.26.4","scipy==1.13.0","pandas==2.2.2","astropy==6.1.0"]
 SETUP_REQUIRES = [
     "setuptools>=40.6.0",
     "setuptools_scm",

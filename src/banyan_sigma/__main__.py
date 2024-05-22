@@ -13,14 +13,17 @@ from banyan_sigma import *
 ra=311.2911826481039
 dec=-31.3425000799281
 
+#Proper motions are provided in mas/yr, pmra is implicitly pmra*cos(dec)
 pmra=281.319
 epmra=0.022
 pmdec=-360.148
 epmdec=0.019
 
+#Parallaxes are provided in mas
 plx=102.943
 eplx=0.023
 
+#Radial velocities are provided in km/s
 rv=-5.2
 erv=0.7
 
