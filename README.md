@@ -178,6 +178,8 @@ Name: 0, dtype: float64
        LN_PRIOR: Natural logarithm of the Bayesian prior (scalar of 4-elements vector). When this is a 4-elements vector, the cases with only proper motion, proper motion + radial velocity, proper motion + distance or proper motion + radial velocity + distance will be used with the corresponding element of the LN_PRIOR vector.
        LN_PRIOR_OBSERVABLES: Scalar string or 4-elements vector describing the observing modes used for each element of ln_prior. This is not used in banyan_sigma.
        COEFFICIENT: Coefficient (or weight) for multivariate Gaussian mixture models. This will only be used if more than one element of the parameters array have the same model name (see below).  
+       DISTANCE_MIN: Minimum distance covered by the model (pc). This is used by restrained_distance_range to skip models outside a requested distance range.
+       DISTANCE_MAX: Maximum distance covered by the model (pc). This is used by restrained_distance_range to skip models outside a requested distance range.
            
 In Python, this fits file is read with the Astropy.Tables routine because it requires multi-dimensional columns. When more than one elements have the same model name, BANYAN_SIGMA will use the COEFFICIENTs to merge its Bayesian probability, therefore representing the hypothesis with a multivariate Gaussian model mixture. This is how the Galactic field is represented in Gagné et al. (2018).
 
@@ -223,6 +225,7 @@ Currently, we have not provided this file for the default Gagné et al. 2026 MOC
        ln_priors: An dictionary that contains the natural logarithm of Bayesian priors that should be *multiplied with the default priors* (use unit_priors=True if you want only ln_priors to be considered). The structure must contain the name of each hypothesis as keys, and the associated scalar value of the natural logarithm of the Bayesian prior for each key. 
        constraint_dist_per_hyp: A structured array that contains a distance constraint (in pc). Each of the Bayesian hypotheses must be included as keys and the distance must be specified as its associated scalar value. constraint_edist_per_hyp must also be specified if constraint_dist_per_hyp is specified. This keyword is useful for including spectro-photometric distance constraints that depend on the age of the young association or field.
        constraint_edist_per_hyp: A structured array that contains a measurement error on the distance constraint (in pc). Each of the Bayesian hypotheses must be included as keys and the distance error must be specified as its associated scalar value.
+       restrained_distance_range: A two-element [minimum, maximum] distance range in pc. Models whose DISTANCE_MIN/DISTANCE_MAX interval does not overlap this range are skipped. This can also be a 2xN or Nx2 array for star-specific distance ranges.
 
 ## OPTIONAL INPUT KEYWORDS:
 
