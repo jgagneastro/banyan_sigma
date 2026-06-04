@@ -1,14 +1,14 @@
 # Banyan Σ (Python 3)
-A Bayesian classifier to identify members of the 27 nearest young associations within 150 pc of the Sun.
+A Bayesian classifier to identify candidate members of the stellar-population hypotheses included in the bundled BANYAN Sigma model file.
 
 This is the Python version of BANYAN Σ. The IDL version can be found at https://github.com/jgagneastro/banyan_sigma_idl
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1165085.svg)](https://doi.org/10.5281/zenodo.1165085)
 
 ## PURPOSE:
-Calculate the membership probability that a given astrophysical object belongs to one of the currently known 27 young associations within 150 pc of the Sun, using Bayesian inference. This tool uses the sky position and proper motion measurements of an object, with optional radial velocity (RV) and distance (D) measurements, to derive a Bayesian membership probability. By default, the priors are adjusted such that a probability treshold of 90% will recover 50%, 68%, 82% or 90% of true association members depending on what observables are input (only sky position and proper motion, with RV, with D, with both RV and D, respectively).
-       
-Please see Gagné et al. 2018 (accepted for publication in ApJS, http://adsabs.harvard.edu/abs/2018arXiv180109051G) for more detail.
+Calculate the membership probability that a given astrophysical object belongs to one of the stellar-population hypotheses included in the bundled BANYAN Sigma model file, using Bayesian inference. This tool uses the sky position and proper motion measurements of an object, with optional radial velocity (RV) and distance (D) measurements, to derive a Bayesian membership probability.
+	       
+Please see Gagné et al. 2018 (accepted for publication in ApJS, http://adsabs.harvard.edu/abs/2018arXiv180109051G) for more detail on the original BANYAN Sigma method. The default model file distributed with this package has been updated to the Gagné et al. 2026 MOCAdb paper models (https://ui.adsabs.harvard.edu/abs/2026arXiv260215695G/abstract).
        
 An online version of this tool is available for 1-object queries at http://www.exoplanetes.umontreal.ca/banyan/banyansigma.php.
        
@@ -165,7 +165,7 @@ Name: 0, dtype: float64
 
 ```
 
-(2) A fits file containing the parameters of the multivariate Gaussian models of each Bayesian hypothesis must be included at /data/banyan_sigma_parameters.fits in the directory where banyan_sigma_ is compiled. The file provided with this release corresponds to the set of 27 young associations described in Gagné et al. (2018). The fits file can be written with the IDL MWRFITS.PRO function from an IDL array of structures of N elements, where N is the total number of multivariate Gaussians used in the models of all Bayesian hypotheses. Each element of this structure contains the following information:
+(2) A fits file containing the parameters of the multivariate Gaussian models of each Bayesian hypothesis must be included at /data/banyan_sigma_parameters.fits in the directory where banyan_sigma_ is compiled. The file provided with this release corresponds to the Gagné et al. 2026 MOCAdb paper models (https://ui.adsabs.harvard.edu/abs/2026arXiv260215695G/abstract), replacing the original set of 27 young associations described in Gagné et al. (2018). The original 2018 parameters file remains archived under /data/as_bsigma_paper/. The fits file can be written with the IDL MWRFITS.PRO function from an IDL array of structures of N elements, where N is the total number of multivariate Gaussians used in the models of all Bayesian hypotheses. Each element of this structure contains the following information:
 
        NAME: The name of the model (scalar string).
        CENTER_VEC: Central XYZUVW position of the model (6D vector, in units of pc and km/s).
@@ -194,9 +194,9 @@ Each component of the 4-elements dimension of TPR, FPR and PPV corresponds to a 
 
 When this fits file is used, the Bayesian probabilities of each star will be associated with a TPR, FPR, NFP and PPV values in the METRICS sub-structure of the output structure.
            
-This file must be located at /data/banyan_sigma_metrics.fits in the directory where BANYAN_SIGMA.pro is compiled. The file provided with this release corresponds to the set of models described in Gagné et al. (2018).
+This file must be located at /data/banyan_sigma_metrics.fits in the directory where BANYAN_SIGMA.pro is compiled. The archived metrics file under /data/as_bsigma_paper/ corresponds to the set of models described in Gagné et al. (2018).
 
-Currently, we have not provided this file because it is rarely used, and the machine-learning performance metrics have not been computed for some of the more recent young associations.
+Currently, we have not provided this file for the default Gagné et al. 2026 MOCAdb paper models because it is rarely used, and the machine-learning performance metrics have not been computed for the updated model set.
            
 ## OPTIONAL INPUTS:
 
