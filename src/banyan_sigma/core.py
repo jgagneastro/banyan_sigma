@@ -448,20 +448,22 @@ def membership_probability(stars_data=None,column_names=None,hypotheses=None,ln_
 			#Concatenate the list of pandas dataframes into a single dataframe
 			output_str_multimodel = pd.concat(output_str_multimodel_list,axis=1)
 
-			#Create a 2D array of weights to combine the Gaussian mixture components
+			#Create likelihood-weighted component weights, matching the IDL solver.
 			weights = np.array(parameters_str.loc[hypotheses[i]]['COEFFICIENT'])
 			weights /= np.sum(weights)
 			logweights_2d = np.tile(np.log(weights),(nobj,1))
+			component_lnprobs = output_str_multimodel['LN_P'].values
+			combined_lnprob = logsumexp(logweights_2d+component_lnprobs,axis=1)
+			with np.errstate(invalid='ignore',over='ignore',under='ignore'):
+				metric_weights = np.exp(logweights_2d+component_lnprobs-combined_lnprob[:,None])
 
 			#Combine each column of the dataframe with a weighted average
 			output_str = pd.DataFrame()
-			#Had to add a .values here
-			for coli in output_str_multimodel.columns.get_level_values(0):
+			output_str['LN_P'] = combined_lnprob
+			for coli in solver_output_columns[1:]:
 				values = output_str_multimodel[coli].values
-				values = np.where(np.isfinite(values),values,-np.inf)
-				output_str[coli] = logsumexp(logweights_2d+values,axis=1)
-				if coli != 'LN_P':
-					output_str.loc[np.isneginf(output_str[coli]),coli] = np.nan
+				output_str[coli] = np.nansum(metric_weights*values,axis=1)
+				output_str.loc[~np.isfinite(combined_lnprob),coli] = np.nan
 
 		#Use column multi-indexing to add a second title to the columns, which corresponds to the name of the Bayesian hypothesis
 		dataframe_column_names = output_str.columns
@@ -789,23 +791,13 @@ def banyan_sigma_solve_multivar(ra,dec,pmra,pmdec,pmra_error,pmdec_error,precisi
 	dist_optimal = (np.sqrt(gamma**2+32.0*beta) - gamma) / (4.0*beta)
 	rv_optimal = (4.0 - GAMMA_GAMMA*dist_optimal**2 + GAMMA_TAU*dist_optimal)/(OMEGA_GAMMA*dist_optimal)
 
-	#Create arrays that contain the measured RV and distance if available, or the optimal values otherwise
-	dist_optimal_or_measured = dist_optimal
-	if dist_measured is not None and dist_error is not None:
-		finite_ind = np.where(np.isfinite(dist_measured) & np.isfinite(dist_error))
-		if np.size(finite_ind) != 0:
-			dist_optimal_or_measured[finite_ind] = dist_measured[finite_ind]
-	rv_optimal_or_measured = rv_optimal
-	if rv_measured is not None and rv_error is not None:
-		finite_ind = np.where(np.isfinite(rv_measured) & np.isfinite(rv_error))
-		if np.size(finite_ind) != 0:
-			rv_optimal_or_measured[finite_ind] = rv_measured[finite_ind]
-
-	#Propagate proper motion measurement errors
+	#Propagate proper-motion errors at the unconstrained optimum. Measured RV and
+	#distance enter the likelihood moments above, but the reference IDL solver
+	#does not substitute them while estimating the covariance inflation.
 	EX = np.zeros(num_stars)
 	EY = np.zeros(num_stars)
 	EZ = np.zeros(num_stars)
-	(U, V, W, EU, EV, EW) = equatorial_UVW(ra,dec,pmra,pmdec,rv_optimal_or_measured,dist_optimal_or_measured,pmra_error=pmra_error,pmdec_error=pmdec_error)
+	(U, V, W, EU, EV, EW) = equatorial_UVW(ra,dec,pmra,pmdec,rv_optimal,dist_optimal,pmra_error=pmra_error,pmdec_error=pmdec_error)
 
 	#Determine by how much the diagonal of the covariance matrix must be inflated to account for the measurement errors
 	covariance_matrix = np.linalg.inv(precision_matrix)
@@ -877,16 +869,18 @@ def banyan_sigma_solve_multivar(ra,dec,pmra,pmdec,pmra_error,pmdec_error,precisi
 	if lnP_only:
 		return lnP
 
-	#Create arrays that contain the measured RV and distance if available, or the optimal values otherwise
-	dist_optimal_or_measured = dist_optimal
-	edist_optimal_or_measured = edist_optimal
+	#Create independent arrays containing measured RV/distance when available.
+	#Copies are required so these substitutions do not overwrite the reported
+	#optimal values through NumPy aliasing.
+	dist_optimal_or_measured = dist_optimal.copy()
+	edist_optimal_or_measured = edist_optimal.copy()
 	if dist_measured is not None and dist_error is not None:
 		finite_ind = np.where(np.isfinite(dist_measured) & np.isfinite(dist_error))
 		if np.size(finite_ind) != 0:
 			dist_optimal_or_measured[finite_ind] = dist_measured[finite_ind]
 			edist_optimal_or_measured[finite_ind] = dist_error[finite_ind]
-	rv_optimal_or_measured = rv_optimal
-	erv_optimal_or_measured = erv_optimal
+	rv_optimal_or_measured = rv_optimal.copy()
+	erv_optimal_or_measured = erv_optimal.copy()
 	if rv_measured is not None and rv_error is not None:
 		finite_ind = np.where(np.isfinite(rv_measured) & np.isfinite(rv_error))
 		if np.size(finite_ind) != 0:
@@ -1260,32 +1254,27 @@ def equatorial_UVW(ra,dec,pmra,pmdec,rv,dist,pmra_error=None,pmdec_error=None,rv
 		dist_error = np.zeros(num_stars)
 	reduced_dist_error = kappa*dist_error
 
-	#Calculate derivatives
-	T23_pm = np.sqrt((T2*pmra)**2+(T3*pmdec)**2)
+	#Calculate derivatives. Keep the signed sum in the distance derivative and
+	#omit product-error terms to match the analytical propagation in uvw_errors.pro.
 	T23_pm_error = np.sqrt((T2*pmra_error)**2+(T3*pmdec_error)**2)
 	EU_rv = T1 * rv_error
 	EU_pm = T23_pm_error * reduced_dist
-	EU_dist = T23_pm * reduced_dist_error
-	EU_dist_pm = T23_pm_error * reduced_dist_error
+	EU_dist = (T2*pmra + T3*pmdec) * reduced_dist_error
 
-	T56_pm = np.sqrt((T5*pmra)**2+(T6*pmdec)**2)
 	T56_pm_error = np.sqrt((T5*pmra_error)**2+(T6*pmdec_error)**2)
 	EV_rv = T4 * rv_error
 	EV_pm = T56_pm_error * reduced_dist
-	EV_dist = T56_pm * reduced_dist_error
-	EV_dist_pm = T56_pm_error * reduced_dist_error
+	EV_dist = (T5*pmra + T6*pmdec) * reduced_dist_error
 
-	T89_pm = np.sqrt((T8*pmra)**2+(T9*pmdec)**2)
 	T89_pm_error = np.sqrt((T8*pmra_error)**2+(T9*pmdec_error)**2)
 	EW_rv = T7 * rv_error
 	EW_pm = T89_pm_error * reduced_dist
-	EW_dist = T89_pm * reduced_dist_error
-	EW_dist_pm = T89_pm_error * reduced_dist_error
+	EW_dist = (T8*pmra + T9*pmdec) * reduced_dist_error
 
 	#Calculate error bars
-	EU = np.sqrt(EU_rv**2 + EU_pm**2 + EU_dist**2 + EU_dist_pm**2)
-	EV = np.sqrt(EV_rv**2 + EV_pm**2 + EV_dist**2 + EV_dist_pm**2)
-	EW = np.sqrt(EW_rv**2 + EW_pm**2 + EW_dist**2 + EW_dist_pm**2)
+	EU = np.sqrt(EU_rv**2 + EU_pm**2 + EU_dist**2)
+	EV = np.sqrt(EV_rv**2 + EV_pm**2 + EV_dist**2)
+	EW = np.sqrt(EW_rv**2 + EW_pm**2 + EW_dist**2)
 
 	#Return measurements and error bars
 	return (U, V, W, EU, EV, EW)
