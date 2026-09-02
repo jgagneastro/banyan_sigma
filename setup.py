@@ -79,6 +79,9 @@ if __name__ == "__main__":
         install_requires=INSTALL_REQUIRES,
         setup_requires=SETUP_REQUIRES,
         extras_require=EXTRA_REQUIRE,
+        entry_points={
+            "console_scripts": ["banyan-sigma=banyan_sigma.cli:main"],
+        },
         classifiers=CLASSIFIERS,
         zip_safe=False,
         options={"bdist_wheel": {"universal": "1"}},

@@ -120,6 +120,8 @@ def membership_probability(stars_data=None,column_names=None,hypotheses=None,ln_
 			data_table['DIST'] = 1e3/stars_data[column_names['PLX']]
 		if 'PLX' in column_names.keys() and 'EPLX' in column_names.keys():
 			data_table['EDIST'] = 1e3/stars_data[column_names['PLX']]**2*stars_data[column_names['EPLX']]
+		if 'NAME' in column_names.keys():
+			data_table['NAME'] = stars_data[column_names['NAME']]
 
 	#Transform parallaxes to distances directly in data_table
 	if 'PLX' in data_table.keys() and 'EPLX' in data_table.keys():

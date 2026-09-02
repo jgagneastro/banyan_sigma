@@ -165,6 +165,33 @@ Name: 0, dtype: float64
 
 ```
 
+## COMMAND-LINE CSV OUTPUT
+
+An installed copy also provides the `banyan-sigma` command (or equivalently
+`python -m banyan_sigma`) for classifying a CSV of targets:
+
+```bash
+banyan-sigma targets.csv results.csv
+```
+
+The input column names are case-insensitive. It must contain `RA`, `DEC`,
+`PMRA`, `PMDEC`, `EPMRA`, and `EPMDEC`; `NAME` is optional. Optional
+measurements can be supplied as complete `RV`/`ERV`, `PLX`/`EPLX`, or
+`DIST`/`EDIST` pairs.
+
+The output is a long-form CSV with one row per target and non-field
+association whose absolute Bayesian probability is strictly greater than 1%.
+It retains every input column and adds `INPUT_ROW`, `ASSOCIATION`, and
+`PROBABILITY`. The threshold can be changed while retaining the same absolute
+probability semantics:
+
+```bash
+banyan-sigma targets.csv results.csv --min-probability 0.05
+```
+
+If no association passes the threshold, the command still writes a CSV with
+the expected headers and no data rows.
+
 (2) A fits file containing the parameters of the multivariate Gaussian models of each Bayesian hypothesis must be included at /data/banyan_sigma_parameters.fits in the directory where banyan_sigma_ is compiled. The file provided with this release corresponds to the Gagné et al. 2026 MOCAdb paper models (https://ui.adsabs.harvard.edu/abs/2026arXiv260215695G/abstract), replacing the original set of 27 young associations described in Gagné et al. (2018). The original 2018 parameters file remains archived under /data/as_bsigma_paper/. The fits file can be written with the IDL MWRFITS.PRO function from an IDL array of structures of N elements, where N is the total number of multivariate Gaussians used in the models of all Bayesian hypotheses. Each element of this structure contains the following information:
 
        NAME: The name of the model (scalar string).
